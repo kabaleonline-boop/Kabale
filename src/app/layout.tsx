@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import AuthModal from '@/components/ui/AuthModal';
 import './globals.css';
 
@@ -28,8 +29,13 @@ export default function RootLayout({
             <Header />
             <AuthModal />
             
-            {/* Page Content */}
-            {children}
+            {/* Page Content wrapped in a flex-grow container to push footer to the bottom */}
+            <div className="flex flex-col min-h-screen">
+              <main className="flex-grow">
+                {children}
+              </main>
+              <Footer />
+            </div>
             
           </CartProvider>
         </AuthProvider>
