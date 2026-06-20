@@ -61,14 +61,11 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
         
         {products.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
-            <p className="text-slate-500">This store hasn't uploaded any products yet.</p>
+            <p className="text-slate-500">This store hasn&apos;t uploaded any products yet.</p>
           </div>
         ) : (
           <div className="w-full">
-            {/* RESPONSIVE LAYOUT ENGINE: 
-              Bento-Grid implementation. Mobile uses a swipeable snap-scroll container, 
-              while desktop utilizes a CSS Grid for optimal structural matrix viewing.
-            */}
+            {/* RESPONSIVE LAYOUT ENGINE */}
             {theme.layoutMode === 'bento-grid' && (
                <div className="flex overflow-x-auto snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4 md:pb-0 scrollbar-hide">
                  {products.map((product) => (
