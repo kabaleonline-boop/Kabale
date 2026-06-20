@@ -47,7 +47,7 @@ export async function getProductBySlug(storeSlug: string, productSlug: string): 
       where('slug', '==', productSlug),
       limit(1)
     );
-    
+
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
       return querySnapshot.docs[0].data() as Product;
@@ -56,5 +56,23 @@ export async function getProductBySlug(storeSlug: string, productSlug: string): 
   } catch (error) {
     console.error('Error fetching product by slug:', error);
     throw error;
+  }
+}
+
+/**
+ * Fetches the entire public catalog for a specific store slug
+ */
+export async function getProductsByStore(storeSlug: string): Promise<Product[]> {
+  try {
+    const q = query(
+      collection(db, 'products'),
+      where('storeId', '==', storeSlug)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data() as Product);
+  } catch (error) {
+    console.error('Error fetching store products:', error);
+    return [];
   }
 }
