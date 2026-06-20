@@ -1,6 +1,6 @@
 // src/middleware.ts
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/request';
+import type { NextRequest } from 'next/server'; // <-- Fixed this import line
 
 export function middleware(request: NextRequest) {
   // Edge-level routing and customization fallback rules go here.
