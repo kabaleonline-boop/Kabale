@@ -11,9 +11,11 @@ import {
 } from 'firebase/firestore';
 import { Product } from '@/types';
 import { generateSlug } from '@/lib/utils';
+import { productsIndex } from '@/lib/algolia';
 
 /**
  * Adds a new product to a store, automatically generating its URL slug
+ * and syncing the lightweight data to Algolia for instant search.
  */
 export async function createProduct(productData: Omit<Product, 'id' | 'slug' | 'createdAt'>): Promise<string> {
   try {
@@ -28,7 +30,21 @@ export async function createProduct(productData: Omit<Product, 'id' | 'slug' | '
       createdAt: new Date(),
     };
 
+    // 1. Save to Firebase (Source of Truth)
     await setDoc(newProductDocRef, completeProduct);
+
+    // 2. Sync lightweight search data to Algolia
+    // We only send what is needed for the search card to keep Algolia pricing low
+    await productsIndex.saveObject({
+      objectID: completeProduct.id, // Algolia requires an 'objectID' field
+      title: completeProduct.title,
+      price: completeProduct.price,
+      image: completeProduct.images[0] || null,
+      storeId: completeProduct.storeId,
+      slug: completeProduct.slug,
+      globalCategory: completeProduct.globalCategory,
+    });
+
     return slug;
   } catch (error) {
     console.error('Error creating product:', error);
