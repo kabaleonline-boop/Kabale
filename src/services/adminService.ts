@@ -1,7 +1,7 @@
 // src/services/adminService.ts
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, query, getCountFromServer } from 'firebase/firestore';
-import { StoreConfig, Product } from '@/types';
+import { StoreConfig, Product, UserProfile } from '@/types';
 import { productsIndex } from '@/lib/algolia';
 
 /**
@@ -26,6 +26,9 @@ export async function getPlatformStats() {
   }
 }
 
+/**
+ * Fetches all stores registered on the platform for admin review
+ */
 export async function getAllStores(): Promise<StoreConfig[]> {
   try {
     const storesRef = collection(db, 'stores');
@@ -38,11 +41,22 @@ export async function getAllStores(): Promise<StoreConfig[]> {
   }
 }
 
+/**
+ * Toggles the verification status of a specific store
+ */
 export async function toggleStoreVerification(storeId: string, currentStatus: boolean): Promise<void> {
-  const storeRef = doc(db, 'stores', storeId);
-  await updateDoc(storeRef, { verified: !currentStatus });
+  try {
+    const storeRef = doc(db, 'stores', storeId);
+    await updateDoc(storeRef, { verified: !currentStatus });
+  } catch (error) {
+    console.error('Error updating store verification:', error);
+    throw error;
+  }
 }
 
+/**
+ * Fetches every single product on the platform for moderation
+ */
 export async function getAllPlatformProducts(): Promise<Product[]> {
   try {
     const q = query(collection(db, 'products'));
@@ -54,7 +68,45 @@ export async function getAllPlatformProducts(): Promise<Product[]> {
   }
 }
 
+/**
+ * Force-deletes a product from both Firestore and the Algolia Search Index
+ */
 export async function deletePlatformProduct(productId: string): Promise<void> {
-  await deleteDoc(doc(db, 'products', productId));
-  await productsIndex.deleteObject(productId);
+  try {
+    // 1. Delete the source of truth from Firebase
+    await deleteDoc(doc(db, 'products', productId));
+    
+    // 2. Delete from Algolia so buyers don't see dead search results
+    await productsIndex.deleteObject(productId);
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches all registered users on the platform
+ */
+export async function getAllUsers(): Promise<UserProfile[]> {
+  try {
+    const q = query(collection(db, 'users'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as UserProfile);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return [];
+  }
+}
+
+/**
+ * Updates a user's role (e.g., from 'buyer' to 'seller' or 'admin')
+ */
+export async function updateUserRole(uid: string, newRole: 'buyer' | 'seller' | 'admin'): Promise<void> {
+  try {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, { role: newRole });
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    throw error;
+  }
 }
