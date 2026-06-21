@@ -17,7 +17,6 @@ export default function AdminOfficialStorePage() {
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Secure Cloudinary Upload Handler (Using the POST signature method)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -31,7 +30,7 @@ export default function AdminOfficialStorePage() {
     const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
 
     if (!cloudName || !apiKey) {
-      alert('Cloudinary environment variables are missing on the frontend!');
+      alert('Cloudinary config is missing!');
       return;
     }
 
@@ -40,41 +39,39 @@ export default function AdminOfficialStorePage() {
 
     try {
       for (const file of files) {
-        // 1. Frontend dictates the parameters
-        const timestamp = Math.round(new Date().getTime() / 1000).toString();
+        // 1. STRICT NUMBER format for the timestamp calculation
+        const timestamp = Math.floor(Date.now() / 1000);
         const folder = 'kabale_products';
         
+        // 2. Alphabetical order for the backend
         const paramsToSign = {
-          timestamp: timestamp,
-          folder: folder,
+          folder,
+          timestamp, // Passed as an integer!
         };
 
-        // 2. Ask the backend for permission (The Signature)
         const signRes = await fetch('/api/cloudinary', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ paramsToSign }),
         });
         
-        if (!signRes.ok) throw new Error('Failed to get signature from backend');
+        if (!signRes.ok) throw new Error('Failed to get signature');
         const { signature } = await signRes.json();
 
-        // 3. The Widget Delivers the Package (FormData)
+        // 3. Append to FormData (convert to String ONLY here)
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', apiKey);
-        formData.append('timestamp', timestamp);
         formData.append('folder', folder);
-        formData.append('signature', signature); // The exact stamp we just received
+        formData.append('timestamp', String(timestamp)); 
+        formData.append('signature', signature);
 
-        // 4. Send directly to Cloudinary
         const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
           method: 'POST',
           body: formData,
         });
 
         const uploadData = await uploadRes.json();
-        
         const finalUrl = uploadData.secure_url || uploadData.url;
         
         if (finalUrl) {
