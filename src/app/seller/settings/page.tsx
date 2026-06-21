@@ -6,8 +6,10 @@ import { useAuth } from '@/context/AuthContext';
 import { getStoreConfig, saveStoreConfig } from '@/services/storeService';
 import { StoreConfig, StoreTheme } from '@/types';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function SellerSettingsPage() {
+  const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,11 +24,20 @@ export default function SellerSettingsPage() {
     fontFamily: 'Inter',
   });
 
-  const storeSlug = profile?.displayName?.toLowerCase().replace(/\s+/g, '-') || 'my-shop';
+  // 🚨 Securely grab the exact URL slug saved to their profile during onboarding
+  const storeSlug = (profile as any)?.storeSlug;
+
+  // Protect route and redirect to onboarding if somehow they got here without a slug
+  useEffect(() => {
+    if (!authLoading && profile && profile.role === 'seller' && !storeSlug) {
+      router.push('/seller/onboarding');
+    }
+  }, [profile, authLoading, storeSlug, router]);
 
   useEffect(() => {
     async function loadStore() {
-      if (!profile?.uid) return;
+      if (!storeSlug) return; // Wait until the slug is fully loaded
+      
       try {
         const config = await getStoreConfig(storeSlug);
         if (config) {
@@ -42,10 +53,15 @@ export default function SellerSettingsPage() {
       }
     }
     if (!authLoading) loadStore();
-  }, [profile, authLoading, storeSlug]);
+  }, [authLoading, storeSlug]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!storeSlug) {
+      alert('Authentication Error: Missing store URL slug.');
+      return;
+    }
+
     setSaving(true);
     try {
       await saveStoreConfig(storeSlug, {
@@ -182,7 +198,7 @@ export default function SellerSettingsPage() {
           </button>
         </form>
 
-        {/* Right Side: Virtual Phone Preview (Unchanged structure, purely visual) */}
+        {/* Right Side: Virtual Phone Preview */}
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between px-2">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Live Sandbox Preview</h3>
