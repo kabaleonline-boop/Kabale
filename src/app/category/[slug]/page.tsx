@@ -14,12 +14,14 @@ const categoryData: Record<string, { dbName: string; icon: string; description: 
   'home-appliances': { dbName: 'Home Appliances', icon: '📺', description: 'TVs, refrigerators, microwaves, and daily home essentials.' },
   'hardware-tools': { dbName: 'Hardware & Tools', icon: '🔨', description: 'Construction materials, power tools, and essential hardware.' },
   'fashion': { dbName: 'Fashion', icon: '👕', description: 'Apparel, sneakers, bags, and premium lifestyle accessories.' },
+  'home-daily-items': { dbName: 'Home & Daily Items', icon: '🧼', description: 'Everyday essentials, cleaning supplies, and personal care products.' },
+  'food-vegetables': { dbName: 'Food & Vegetables', icon: '🥬', description: 'Fresh farm produce, packed foods, snacks, and daily groceries.' },
 };
 
 export default function CategoryPage() {
   const params = useParams();
   const slug = params.slug as string;
-  
+
   // Look up the category details. If someone types a random URL, fallback safely.
   const category = categoryData[slug] || { dbName: slug, icon: '📦', description: 'Explore items in this category.' };
 
@@ -79,7 +81,7 @@ export default function CategoryPage() {
             {products.map((product) => (
               <Link href={`/s/${product.storeId}/p/${product.slug}`} key={product.id}>
                 <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-shadow group h-full flex flex-col">
-                  
+
                   <div className="aspect-square bg-slate-50 relative overflow-hidden">
                     {product.images && product.images[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -92,7 +94,7 @@ export default function CategoryPage() {
                       <div className="w-full h-full flex items-center justify-center text-4xl">📦</div>
                     )}
                   </div>
-                  
+
                   <div className="p-4 flex flex-col flex-1">
                     <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
                       {product.storeCategory || category.dbName}
