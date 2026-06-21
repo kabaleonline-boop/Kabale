@@ -9,7 +9,7 @@ export default function HeroSection() {
         <div className="text-center lg:text-left">
           
           <h1 className="text-5xl sm:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
-            The Digital Mall <br />
+            The Kabale Town <br />
             <span className="text-emerald-600">in Your Pocket.</span>
           </h1>
           <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto lg:mx-0">
