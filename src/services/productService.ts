@@ -15,16 +15,18 @@ import {
 } from 'firebase/firestore';
 import { Product } from '@/types';
 import { generateSlug } from '@/lib/utils';
-import { productsIndex } from '@/lib/algolia';
+
+// 🚨 We import the secure Server Action instead of the direct Algolia client
+import { syncProductToSearch } from '@/services/algoliaServer';
 
 /**
  * Adds a new product to a store, automatically generating its URL slug
- * and syncing the lightweight data to Algolia for instant search.
+ * and syncing the lightweight data to Algolia via a secure Server Action.
  */
 export async function createProduct(productData: any): Promise<string> {
   try {
     const productCollectionRef = collection(db, 'products');
-    const newProductDocRef = doc(productCollectionRef); // Autogenerate unique document ID
+    const newProductDocRef = doc(productCollectionRef); 
     const slug = generateSlug(productData.title);
 
     const completeProduct: Product = {
@@ -34,13 +36,12 @@ export async function createProduct(productData: any): Promise<string> {
       createdAt: new Date(),
     };
 
-    // 1. Save to Firebase (Source of Truth) - This is the priority!
+    // 1. Save to Firebase (Source of Truth) - Runs on the Browser
     await setDoc(newProductDocRef, completeProduct);
 
-    // 2. Sync lightweight search data to Algolia
-    // Wrapped in a separate try/catch so Algolia failure doesn't crash your Firebase save
+    // 2. Hand data off to the Backend Server Action to sync with Algolia
     try {
-      await productsIndex.saveObject({
+      await syncProductToSearch({
         objectID: completeProduct.id, 
         title: completeProduct.title,
         price: completeProduct.price,
@@ -48,10 +49,9 @@ export async function createProduct(productData: any): Promise<string> {
         storeId: completeProduct.storeId,
         slug: completeProduct.slug,
         globalCategory: completeProduct.globalCategory,
-      } as any);
+      });
     } catch (algoliaError) {
-      console.error('Algolia sync failed, but Firebase save succeeded:', algoliaError);
-      // We do NOT throw here, so the user still sees "Added to Official Store!"
+      console.error('Algolia server sync failed, but Firebase save succeeded:', algoliaError);
     }
 
     return slug;
