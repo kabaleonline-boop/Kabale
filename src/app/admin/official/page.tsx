@@ -39,12 +39,14 @@ export default function AdminOfficialStorePage() {
         const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
         const signData = await signRes.json();
 
-        // 2. Prepare payload (NOTICE: No folder appended here!)
+        // 2. Prepare payload
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', signData.apiKey);
         formData.append('timestamp', signData.timestamp);
         formData.append('signature', signData.signature);
+        // 🚨 CRITICAL FIX: Append the exact folder name sent by the backend
+        formData.append('folder', signData.folder);
 
         // 3. Upload directly to Cloudinary
         const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
@@ -53,7 +55,7 @@ export default function AdminOfficialStorePage() {
         });
 
         const uploadData = await uploadRes.json();
-        console.log("CLOUDINARY RESPONSE:", uploadData); // <-- This will tell us if it fails
+        console.log("CLOUDINARY RESPONSE:", uploadData); 
 
         // 4. Safely extract the URL
         const finalUrl = uploadData.secure_url || uploadData.url;
