@@ -10,8 +10,9 @@ export default function SellerDashboard() {
   const router = useRouter();
   const { profile, loading } = useAuth();
 
+  // Simple auth check: Just make sure they are logged in! No complicated role restrictions.
   useEffect(() => {
-    if (!loading && (!profile || profile.role !== 'seller')) {
+    if (!loading && !profile) {
       router.push('/');
     }
   }, [profile, loading, router]);
