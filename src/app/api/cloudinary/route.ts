@@ -1,40 +1,28 @@
 // src/app/api/cloudinary/route.ts
+import { v2 as cloudinary } from 'cloudinary';
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
 
-export const dynamic = 'force-dynamic';
-
-export async function GET() {
+export async function POST(request: Request) {
   try {
-    const timestamp = Math.round(new Date().getTime() / 1000).toString();
-    const folder = 'kabale_products';
+    const body = await request.json();
+    const { paramsToSign } = body;
 
-    // .trim() prevents invisible spaces from breaking the security hash
+    // 1. Safely grab the secret
     const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
-    const apiKey = (process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY)?.trim();
-    const cloudName = (process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME)?.trim();
 
-    if (!apiSecret || !apiKey || !cloudName) {
-      console.error("Missing Cloudinary environment variables!");
-      return NextResponse.json({ error: 'Server config error' }, { status: 500 });
+    if (!apiSecret) {
+      console.error("Missing CLOUDINARY_API_SECRET in Vercel!");
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    // THIS IS THE EXACT STRING FROM YOUR SCREENSHOT (Alphabetical order required)
-    const stringToSign = `folder=${folder}&timestamp=${timestamp}`;
+    // 2. Mathematically sign exactly what the frontend asked us to sign
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      apiSecret
+    );
 
-    // Hash the exact string + API Secret
-    const signature = crypto
-      .createHash('sha1')
-      .update(stringToSign + apiSecret)
-      .digest('hex');
-
-    return NextResponse.json({
-      timestamp,
-      signature,
-      apiKey,
-      cloudName,
-      folder,
-    });
+    // 3. Return just the signature
+    return NextResponse.json({ signature });
   } catch (error) {
     console.error("Cloudinary signing error:", error);
     return NextResponse.json({ error: 'Failed to generate signature' }, { status: 500 });
