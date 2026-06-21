@@ -2,6 +2,7 @@
 import HeroSection from '@/components/HeroSection';
 import OfficialStorePromo from '@/components/OfficialStorePromo';
 import CategoriesList from '@/components/CategoriesList';
+import ShopByStore from '@/components/ShopByStore'; // 🚨 Import the new component
 import ValuePropsGrid from '@/components/ValuePropsGrid';
 
 export default function HomePage() {
@@ -10,6 +11,7 @@ export default function HomePage() {
       <HeroSection />
       <OfficialStorePromo />
       <CategoriesList />
+      <ShopByStore /> {/* 🚨 Add it right here */}
       <ValuePropsGrid />
     </div>
   );
