@@ -23,7 +23,8 @@ export default function SellLandingPage() {
       
       // Use window.location.href to force a hard reload. 
       // This guarantees the AuthContext refreshes the role to 'seller' immediately.
-      window.location.href = '/seller/settings';
+      window.location.href = '/seller/onboarding';
+
     } catch (error) {
       console.error('Error upgrading account:', error);
       alert('Something went wrong. Please try again.');
