@@ -59,7 +59,8 @@ export default function SellLandingPage() {
             </button>
           ) : profile.role === 'seller' || profile.role === 'admin' ? (
             <button 
-              onClick={() => router.push('/seller/settings')}
+              // 🚨 Updated: Routes to the new central dashboard instead of settings
+              onClick={() => router.push('/seller/dashboard')}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 px-10 rounded-full text-lg transition shadow-xl shadow-emerald-900/50"
             >
               Go to My Dashboard
@@ -82,7 +83,7 @@ export default function SellLandingPage() {
           <h2 className="text-3xl font-black text-slate-900 text-center mb-12">Why Sell on Kabale Online?</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-lg transition-shadow">
               <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-6">
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
               </div>
@@ -92,7 +93,7 @@ export default function SellLandingPage() {
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-lg transition-shadow">
               <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
@@ -102,7 +103,7 @@ export default function SellLandingPage() {
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-lg transition-shadow">
               <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-6">
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               </div>
