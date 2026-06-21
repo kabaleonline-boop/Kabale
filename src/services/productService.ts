@@ -7,7 +7,11 @@ import {
   getDocs, 
   query, 
   where, 
-  limit 
+  limit,
+  orderBy,
+  startAfter,
+  QueryDocumentSnapshot,
+  DocumentData
 } from 'firebase/firestore';
 import { Product } from '@/types';
 import { generateSlug } from '@/lib/utils';
@@ -84,11 +88,52 @@ export async function getProductsByStore(storeSlug: string): Promise<Product[]> 
       collection(db, 'products'),
       where('storeId', '==', storeSlug)
     );
-    
+
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data() as Product);
   } catch (error) {
     console.error('Error fetching store products:', error);
     return [];
+  }
+}
+
+/**
+ * Fetches a global feed of all products across all stores, ordered by newest.
+ * Supports cursor-based pagination for infinite scrolling.
+ */
+export async function getGlobalProductsFeed(
+  lastVisibleDoc: QueryDocumentSnapshot<DocumentData> | null = null,
+  pageSize: number = 12
+) {
+  try {
+    const productsRef = collection(db, 'products');
+    
+    // Base query: newest first, limited to page size
+    let q = query(
+      productsRef,
+      orderBy('createdAt', 'desc'),
+      limit(pageSize)
+    );
+
+    // If we have a cursor from a previous fetch, start after it
+    if (lastVisibleDoc) {
+      q = query(
+        productsRef,
+        orderBy('createdAt', 'desc'),
+        startAfter(lastVisibleDoc),
+        limit(pageSize)
+      );
+    }
+
+    const snapshot = await getDocs(q);
+    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+    
+    // Save the last document to use as the starting point for the next batch
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
+
+    return { products, lastDoc };
+  } catch (error) {
+    console.error('Error fetching global feed:', error);
+    return { products: [], lastDoc: null };
   }
 }
