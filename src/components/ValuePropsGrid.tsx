@@ -2,7 +2,7 @@
 export default function ValuePropsGrid() {
   const values = [
     {
-      image: "https://images.unsplash.com/photo-1617865243831-7722d3e4298a?q=80&w=600&auto=format&fit=crop",
+      image: "https://res.cloudinary.com/dmdml16he/image/upload/v1782047022/IMG-20230722-WA0036_hki2ja.jpg",
       text: "Pay on Delivery. Inspect your items first before paying the rider."
     },
     {
@@ -10,11 +10,11 @@ export default function ValuePropsGrid() {
       text: "Same-day delivery within Kabale Municipality. Get it when you need it."
     },
     {
-      image: "https://images.unsplash.com/photo-1556740749-887f6717defa?q=80&w=600&auto=format&fit=crop",
+      image: "https://res.cloudinary.com/dmdml16he/image/upload/v1782047022/kabale-town_vtlgux.jpg",
       text: "100% Verified local sellers guaranteeing authentic products."
     },
     {
-      image: "https://images.unsplash.com/photo-1580828369019-22345e69e019?q=80&w=600&auto=format&fit=crop",
+      image: "https://res.cloudinary.com/dmdml16he/image/upload/v1782047022/Depositphotos_187253254_xl-2015-scaled-e1581999495557_vmot2w.jpg",
       text: "Secure returns and instant refunds if items don't match the description."
     }
   ];
