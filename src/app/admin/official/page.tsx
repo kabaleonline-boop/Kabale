@@ -24,7 +24,6 @@ export default function AdminOfficialStorePage() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    // Enforce 5 images max
     if (images.length + files.length > 5) {
       alert('You can only upload a maximum of 5 images.');
       return;
@@ -35,46 +34,44 @@ export default function AdminOfficialStorePage() {
 
     try {
       for (const file of files) {
-        // 1. Fetch secure signature with anti-caching enabled
+        // 1. Fetch secure signature
         const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
         const signData = await signRes.json();
 
-        // 2. Prepare payload
+        // 2. Prepare payload exactly matching the signature requirements
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', signData.apiKey);
+        formData.append('folder', signData.folder);
         formData.append('timestamp', signData.timestamp);
         formData.append('signature', signData.signature);
-        // 🚨 CRITICAL FIX: Append the exact folder name sent by the backend
-        formData.append('folder', signData.folder);
 
-        // 3. Upload directly to Cloudinary
+        // 3. Upload to Cloudinary
         const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
           method: 'POST',
           body: formData,
         });
 
         const uploadData = await uploadRes.json();
-        console.log("CLOUDINARY RESPONSE:", uploadData); 
 
-        // 4. Safely extract the URL
+        // 4. Safely extract URL
         const finalUrl = uploadData.secure_url || uploadData.url;
         
         if (finalUrl) {
           newImageUrls.push(finalUrl);
         } else {
-          console.error("Cloudinary rejected the image:", uploadData);
-          alert(`Image upload failed: ${uploadData.error?.message || 'Check console'}`);
+          console.error("Cloudinary rejected:", uploadData);
+          alert(`Upload failed: ${uploadData.error?.message || 'Check console'}`);
         }
       }
 
-      // 5. Add successful uploads to state
+      // 5. Update state
       if (newImageUrls.length > 0) {
         setImages((prev) => [...prev, ...newImageUrls]);
       }
     } catch (error) {
-      console.error('Image upload crash:', error);
-      alert('Failed to upload some images. Please try again.');
+      console.error('Upload crash:', error);
+      alert('Failed to upload images.');
     } finally {
       setUploadingImages(false);
     }
@@ -86,12 +83,7 @@ export default function AdminOfficialStorePage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (images.length === 0) {
-      alert('Please upload at least one image.');
-      return;
-    }
-
+    if (images.length === 0) return alert('Please upload an image.');
     setLoading(true);
 
     try {
@@ -101,12 +93,11 @@ export default function AdminOfficialStorePage() {
         description,
         storeCategory: category,
         globalCategory: category,
-        storeId: 'kabale-official', // Hardcoded to the Official Store
+        storeId: 'kabale-official',
         images: images, 
         stock: 100, 
       });
-
-      alert('Item added to Kabale Official Store successfully!');
+      alert('Added to Official Store!');
       router.push('/admin/products');
     } catch (error) {
       console.error(error);
@@ -122,89 +113,52 @@ export default function AdminOfficialStorePage() {
         <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
           <span className="text-emerald-500">⭐</span> Official Store Manager
         </h1>
-        <p className="text-slate-500 text-sm">Upload premium inventory that appears directly in the Kabale Official section on the homepage.</p>
+        <p className="text-slate-500 text-sm">Upload premium inventory directly to Kabale Official.</p>
       </div>
 
       <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
         <form onSubmit={handleUpload} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Real Image Uploader */}
+            {/* Image Uploader */}
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-slate-700 mb-3">Product Images (Max 5)</label>
-              
               <div className="flex flex-wrap gap-4">
-                {/* Previews */}
                 {images.map((url, idx) => (
                   <div key={idx} className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm group">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
-                    <button 
-                      type="button" 
-                      onClick={() => removeImage(idx)}
-                      className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition"
-                    >
+                    <button type="button" onClick={() => removeImage(idx)} className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
                       Remove
                     </button>
                   </div>
                 ))}
-
-                {/* Upload Button */}
                 {images.length < 5 && (
                   <label className="w-24 h-24 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 transition cursor-pointer text-slate-500 hover:text-emerald-600">
                     {uploadingImages ? (
                       <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                     ) : (
-                      <>
-                        <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                        <span className="text-xs font-semibold">Upload</span>
-                      </>
+                      <><svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg><span className="text-xs font-semibold">Upload</span></>
                     )}
-                    <input 
-                      type="file" 
-                      multiple 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleImageUpload}
-                      disabled={uploadingImages}
-                    />
+                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImages} />
                   </label>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-2">First image will be the cover. Supported formats: JPG, PNG, WEBP.</p>
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-slate-700 mb-1">Product Title</label>
-              <input 
-                type="text" 
-                required 
-                value={title} 
-                onChange={(e) => setTitle(e.target.value)} 
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" 
-                placeholder="e.g., iPhone 15 Pro Max - 256GB" 
-              />
+              <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" placeholder="e.g., iPhone 15 Pro Max - 256GB" />
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Price (UGX)</label>
-              <input 
-                type="number" 
-                required 
-                value={price} 
-                onChange={(e) => setPrice(e.target.value)} 
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" 
-                placeholder="e.g., 4500000" 
-              />
+              <input type="number" required value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" placeholder="e.g., 4500000" />
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Global Category</label>
-              <select 
-                value={category} 
-                onChange={(e) => setCategory(e.target.value)} 
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition"
-              >
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition">
                 <option>Phones & Tablets</option>
                 <option>Computing</option>
                 <option>Home Appliances</option>
@@ -215,24 +169,11 @@ export default function AdminOfficialStorePage() {
 
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-slate-700 mb-1">Product Description</label>
-              <textarea 
-                required 
-                rows={4}
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition resize-none" 
-                placeholder="Detail the specifications, warranty info, and features..." 
-              />
+              <textarea required rows={4} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition resize-none" placeholder="Detail the specifications..." />
             </div>
           </div>
-
           <hr className="border-slate-100" />
-
-          <button 
-            type="submit" 
-            disabled={loading || uploadingImages}
-            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
-          >
+          <button type="submit" disabled={loading || uploadingImages} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md">
             {loading ? 'Publishing...' : 'Publish to Official Store'}
           </button>
         </form>
