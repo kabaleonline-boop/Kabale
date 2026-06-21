@@ -47,7 +47,7 @@ export default function AddProductPage() {
       for (const file of files) {
         // 1. Fetch secure signature with anti-caching
         const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
-        
+
         if (!signRes.ok) throw new Error('Failed to securely sign the image upload request.');
         const signData = await signRes.json();
 
@@ -114,7 +114,8 @@ export default function AddProductPage() {
     setLoading(true);
 
     try {
-      // Hands off to productService, which saves to Firebase and then triggers the Algolia Server Action
+      // Hands off to productService: saves to Firebase first, 
+      // then seamlessly triggers our new Next.js API Route to sync with Algolia
       await createProduct({
         title,
         price: Number(price),
@@ -140,7 +141,7 @@ export default function AddProductPage() {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4 sm:px-0">
-      
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
           <span className="text-emerald-500">📦</span> Add New Product
@@ -150,7 +151,7 @@ export default function AddProductPage() {
 
       <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-100 shadow-sm">
         <form onSubmit={handleUpload} className="space-y-8">
-          
+
           {/* Image Uploader */}
           <div>
             <label className="block text-sm font-semibold text-slate-900 mb-4">Product Imagery</label>
