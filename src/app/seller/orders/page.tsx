@@ -12,12 +12,14 @@ export default function SellerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Derive the store slug exactly as we did in the settings panel
-  const storeSlug = profile?.displayName?.toLowerCase().replace(/\s+/g, '-') || 'my-shop';
+  // 🚨 Securely grab the exact URL slug saved to their profile during onboarding
+  const storeSlug = (profile as any)?.storeSlug;
 
   useEffect(() => {
     async function fetchOrders() {
-      if (!profile) return;
+      // Wait until the authentication and the store slug are fully loaded
+      if (!storeSlug) return; 
+
       try {
         const fetchedOrders = await getStoreOrders(storeSlug);
         setOrders(fetchedOrders);
@@ -29,7 +31,7 @@ export default function SellerOrdersPage() {
     }
 
     if (!authLoading) fetchOrders();
-  }, [profile, authLoading, storeSlug]);
+  }, [authLoading, storeSlug]);
 
   const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
     try {
