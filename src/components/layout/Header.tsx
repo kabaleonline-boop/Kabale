@@ -1,7 +1,7 @@
 // src/components/layout/Header.tsx
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -25,15 +25,15 @@ export default function Header() {
   // Safe store slug check
   const storeSlug = (profile as any)?.storeSlug;
 
-  // Reusable link component for the mobile drawer
+  // Reusable, uniform link component for the mobile drawer
   const MobileLink = ({ href, children }: { href: string, children: React.ReactNode }) => {
     const active = isActive(href);
     return (
       <Link 
         href={href} 
         onClick={() => setIsMobileMenuOpen(false)} 
-        className={`block px-2 py-4 border-b border-slate-100 transition-colors ${
-          active ? 'text-emerald-600 font-black' : 'text-slate-700 font-semibold'
+        className={`block px-6 py-4 border-b border-slate-100 transition-colors ${
+          active ? 'text-emerald-600 font-black' : 'text-slate-700 font-semibold hover:text-emerald-600'
         }`}
       >
         {children}
@@ -86,6 +86,7 @@ export default function Header() {
               )}
             </div>
 
+            {/* Only show Create Store on Desktop if they are a buyer or guest */}
             {(!profile || profile.role !== 'seller') && (
               <Link href="/sell" className="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">
                 Create Store
@@ -113,20 +114,29 @@ export default function Header() {
                 {/* Desktop User Dropdown */}
                 {isUserDropdownOpen && (
                   <div className="absolute right-0 mt-4 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 overflow-hidden">
-                    <Link href="/buyer/orders" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">My Orders</Link>
+                    {/* Logged in as indicator */}
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                      <p className="text-xs text-slate-500">Logged in as</p>
+                      <p className="text-sm font-bold text-slate-900 truncate">{profile.displayName}</p>
+                    </div>
 
+                    {/* Both Buyers and Sellers see My Orders */}
+                    <Link href="/buyer/orders" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 mt-1">My Orders</Link>
+
+                    {/* ONLY Sellers see the Store Management Links */}
                     {profile.role === 'seller' && (
                       <>
                         <hr className="my-2 border-slate-100" />
-                        <Link href="/seller/dashboard" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-bold text-slate-900 hover:bg-slate-50">🎛️ Seller Dashboard</Link>
+                        <Link href="/seller/dashboard" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-bold text-slate-900 hover:bg-slate-50">Seller Dashboard</Link>
                         {storeSlug && (
                           <Link href={`/s/${storeSlug}`} onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-emerald-600 hover:bg-emerald-50">View My Storefront</Link>
                         )}
                       </>
                     )}
 
+                    {/* ONLY Admins see the Command Center */}
                     {profile.role === 'admin' && (
-                      <Link href="/admin" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm text-purple-600 font-semibold hover:bg-purple-50">Admin Command</Link>
+                      <Link href="/admin" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm text-purple-600 font-semibold hover:bg-purple-50">Admin Command Center</Link>
                     )}
 
                     <hr className="my-2 border-slate-100" />
@@ -175,14 +185,14 @@ export default function Header() {
           {/* Drawer */}
           <div className="relative w-[85%] max-w-sm h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
 
-            {/* Drawer Header (Logo & Bold Close Button) */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200">
-              <span className="text-lg font-black tracking-tight text-slate-900">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <span className="text-xl font-black tracking-tight text-slate-900">
                 KABALE <span className="text-emerald-600">ONLINE</span>
               </span>
               <button 
                 onClick={() => setIsMobileMenuOpen(false)} 
-                className="p-2 text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-full transition"
+                className="p-2 text-slate-900 bg-white hover:bg-slate-200 rounded-full shadow-sm border border-slate-200 transition"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
@@ -190,36 +200,26 @@ export default function Header() {
               </button>
             </div>
 
-            {/* Drawer Links */}
-            <div className="flex flex-col flex-grow p-4 overflow-y-auto">
+            {/* Uniform Drawer Links */}
+            <div className="flex flex-col flex-grow overflow-y-auto pb-4">
               
-              <div className="mb-4">
-                <MobileLink href="/products">All Products</MobileLink>
-                <MobileLink href="/s/kabale-official">Official Store</MobileLink>
-                <MobileLink href="/stores">Stores Directory</MobileLink>
-                <MobileLink href="/about">About Us</MobileLink>
-                <MobileLink href="/policy">Policies</MobileLink>
-              </div>
+              <MobileLink href="/products">All Products</MobileLink>
+              <MobileLink href="/s/kabale-official">Official Store</MobileLink>
+              <MobileLink href="/stores">Stores Directory</MobileLink>
+              <MobileLink href="/about">About Us</MobileLink>
+              <MobileLink href="/policy">Policies</MobileLink>
 
               {loading ? (
                  <div className="flex justify-center py-6">
                    <div className="w-6 h-6 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                  </div>
               ) : !profile ? (
-                <div className="mt-4 space-y-4">
-                  <MobileLink href="/sell">Create a Store</MobileLink>
-                  <button 
-                    onClick={() => { openAuthModal(); setIsMobileMenuOpen(false); }}
-                    className="w-full mt-4 bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition"
-                  >
-                    Login / Sign Up
-                  </button>
-                </div>
+                <MobileLink href="/sell">Create a Store</MobileLink>
               ) : (
-                <div className="flex flex-col h-full border-t border-slate-200 pt-4">
-                  
+                <>
                   <MobileLink href="/buyer/orders">My Orders</MobileLink>
                   
+                  {/* Buyers see "Create a Store", Sellers see Seller Dashboard tools */}
                   {profile.role === 'seller' ? (
                     <>
                       <MobileLink href="/seller/dashboard">Seller Dashboard</MobileLink>
@@ -229,31 +229,38 @@ export default function Header() {
                     <MobileLink href="/sell">Create a Store</MobileLink>
                   )}
 
+                  {/* ONLY Admins see the Command Center */}
                   {profile.role === 'admin' && (
-                    <Link 
-                      href="/admin" 
-                      onClick={() => setIsMobileMenuOpen(false)} 
-                      className="block px-2 py-4 border-b border-slate-100 text-purple-600 font-bold transition-colors"
-                    >
-                      Admin Command Center
-                    </Link>
+                    <MobileLink href="/admin">Admin Command Center</MobileLink>
                   )}
-
-                  {/* Footer: Logged in status & Sign Out */}
-                  <div className="mt-auto pt-8 pb-4">
-                    <p className="text-sm text-slate-500 mb-3 px-2">
-                      Logged in as <span className="font-bold text-slate-900">{profile.displayName}</span>
-                    </p>
-                    <button 
-                      onClick={() => { logout(); setIsMobileMenuOpen(false); }}
-                      className="w-full bg-red-50 text-red-600 font-bold py-4 rounded-2xl active:scale-[0.98] transition-transform"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
+                </>
               )}
             </div>
+
+            {/* Footer Area: Login or Sign Out */}
+            <div className="mt-auto p-6 bg-slate-50 border-t border-slate-100">
+              {!loading && !profile ? (
+                <button 
+                  onClick={() => { openAuthModal(); setIsMobileMenuOpen(false); }}
+                  className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-200"
+                >
+                  Login / Sign Up
+                </button>
+              ) : !loading && profile ? (
+                <div>
+                  <p className="text-sm text-slate-500 mb-3 text-center">
+                    Logged in as <span className="font-bold text-slate-900">{profile.displayName}</span>
+                  </p>
+                  <button 
+                    onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                    className="w-full bg-red-50 border border-red-100 text-red-600 font-bold py-4 rounded-xl active:scale-[0.98] transition-transform"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
           </div>
         </div>
       )}
