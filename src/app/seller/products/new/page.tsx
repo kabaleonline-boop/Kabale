@@ -53,7 +53,6 @@ export default function AddProductPage() {
         formData.append('api_key', signData.apiKey);
         formData.append('timestamp', signData.timestamp);
         formData.append('signature', signData.signature);
-        // Note: Removed 'folder' to prevent Cloudinary signature mismatch errors
 
         const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
           method: 'POST',
@@ -86,8 +85,9 @@ export default function AddProductPage() {
       return;
     }
 
-    // Safely extract the store ID to bypass strict TypeScript checks
-    const storeId = (profile as any)?.storeSlug || profile?.id || (profile as any)?.uid;
+    // Completely bypass TypeScript strictness here
+    const p = profile as any;
+    const storeId = p?.storeSlug || p?.id || p?.uid;
 
     if (!storeId) {
       alert('Store configuration error. Please contact support.');
@@ -103,7 +103,7 @@ export default function AddProductPage() {
         description,
         storeCategory: category,
         globalCategory: category,
-        storeId: storeId, // Dynamically uses the seller's unique store ID
+        storeId: storeId, 
         images: images, 
         stock: Number(stock), 
       });
