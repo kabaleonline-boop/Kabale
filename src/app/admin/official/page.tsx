@@ -9,17 +9,15 @@ export default function AdminOfficialStorePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Form State
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Phones & Tablets');
   
-  // Image Upload State
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Secure Cloudinary Upload Handler
+  // Secure Cloudinary Upload Handler (Using the POST signature method)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -29,32 +27,54 @@ export default function AdminOfficialStorePage() {
       return;
     }
 
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+
+    if (!cloudName || !apiKey) {
+      alert('Cloudinary environment variables are missing on the frontend!');
+      return;
+    }
+
     setUploadingImages(true);
     const newImageUrls: string[] = [];
 
     try {
       for (const file of files) {
-        // 1. Fetch secure signature
-        const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
-        const signData = await signRes.json();
+        // 1. Frontend dictates the parameters
+        const timestamp = Math.round(new Date().getTime() / 1000).toString();
+        const folder = 'kabale_products';
+        
+        const paramsToSign = {
+          timestamp: timestamp,
+          folder: folder,
+        };
 
-        // 2. Prepare payload exactly matching the signature requirements
+        // 2. Ask the backend for permission (The Signature)
+        const signRes = await fetch('/api/cloudinary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paramsToSign }),
+        });
+        
+        if (!signRes.ok) throw new Error('Failed to get signature from backend');
+        const { signature } = await signRes.json();
+
+        // 3. The Widget Delivers the Package (FormData)
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('api_key', signData.apiKey);
-        formData.append('folder', signData.folder);
-        formData.append('timestamp', signData.timestamp);
-        formData.append('signature', signData.signature);
+        formData.append('api_key', apiKey);
+        formData.append('timestamp', timestamp);
+        formData.append('folder', folder);
+        formData.append('signature', signature); // The exact stamp we just received
 
-        // 3. Upload to Cloudinary
-        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
+        // 4. Send directly to Cloudinary
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
           method: 'POST',
           body: formData,
         });
 
         const uploadData = await uploadRes.json();
-
-        // 4. Safely extract URL
+        
         const finalUrl = uploadData.secure_url || uploadData.url;
         
         if (finalUrl) {
@@ -65,7 +85,6 @@ export default function AdminOfficialStorePage() {
         }
       }
 
-      // 5. Update state
       if (newImageUrls.length > 0) {
         setImages((prev) => [...prev, ...newImageUrls]);
       }
@@ -120,7 +139,6 @@ export default function AdminOfficialStorePage() {
         <form onSubmit={handleUpload} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Image Uploader */}
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-slate-700 mb-3">Product Images (Max 5)</label>
               <div className="flex flex-wrap gap-4">
