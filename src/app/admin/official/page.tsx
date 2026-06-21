@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { createProduct } from '@/services/productService';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function AdminOfficialStorePage() {
   const router = useRouter();
@@ -14,10 +15,74 @@ export default function AdminOfficialStorePage() {
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Phones & Tablets');
-  const [imageUrl, setImageUrl] = useState('');
+  
+  // Image Upload State
+  const [images, setImages] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  // Secure Cloudinary Upload Handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Enforce 5 images max
+    if (images.length + files.length > 5) {
+      alert('You can only upload a maximum of 5 images.');
+      return;
+    }
+
+    setUploadingImages(true);
+    const newImageUrls: string[] = [];
+
+    try {
+      for (const file of files) {
+        // 1. Fetch secure signature from your API route
+        // Note: Ensure this URL matches the signature API route you built (e.g., /api/cloudinary, /api/sign, etc.)
+        const signRes = await fetch('/api/cloudinary'); 
+        const signData = await signRes.json();
+
+        // 2. Prepare payload
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('api_key', signData.apiKey);
+        formData.append('timestamp', signData.timestamp);
+        formData.append('signature', signData.signature);
+        formData.append('folder', 'kabale_products'); // Optional: Keeps your Cloudinary organized
+
+        // 3. Upload directly to Cloudinary
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+        if (uploadData.secure_url) {
+          newImageUrls.push(uploadData.secure_url);
+        }
+      }
+
+      // Add successful uploads to state
+      setImages((prev) => [...prev, ...newImageUrls]);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      alert('Failed to upload some images. Please try again.');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const removeImage = (indexToRemove: number) => {
+    setImages(images.filter((_, index) => index !== indexToRemove));
+  };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (images.length === 0) {
+      alert('Please upload at least one image.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -28,8 +93,8 @@ export default function AdminOfficialStorePage() {
         storeCategory: category,
         globalCategory: category,
         storeId: 'kabale-official', // Hardcoded to the Official Store
-        images: [imageUrl],
-        stock: 100, // Fixed: Added the required 'stock' property
+        images: images, // Pass the array of uploaded Cloudinary URLs
+        stock: 100, 
       });
 
       alert('Item added to Kabale Official Store successfully!');
@@ -54,6 +119,51 @@ export default function AdminOfficialStorePage() {
       <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
         <form onSubmit={handleUpload} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Real Image Uploader */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-3">Product Images (Max 5)</label>
+              
+              <div className="flex flex-wrap gap-4">
+                {/* Previews */}
+                {images.map((url, idx) => (
+                  <div key={idx} className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm group">
+                    <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                    <button 
+                      type="button" 
+                      onClick={() => removeImage(idx)}
+                      className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+
+                {/* Upload Button */}
+                {images.length < 5 && (
+                  <label className="w-24 h-24 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 transition cursor-pointer text-slate-500 hover:text-emerald-600">
+                    {uploadingImages ? (
+                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                        <span className="text-xs font-semibold">Upload</span>
+                      </>
+                    )}
+                    <input 
+                      type="file" 
+                      multiple 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleImageUpload}
+                      disabled={uploadingImages}
+                    />
+                  </label>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">First image will be the cover. Supported formats: JPG, PNG, WEBP.</p>
+            </div>
+
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-slate-700 mb-1">Product Title</label>
               <input 
@@ -104,29 +214,14 @@ export default function AdminOfficialStorePage() {
                 placeholder="Detail the specifications, warranty info, and features..." 
               />
             </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Cloudinary Image URL</label>
-              <div className="flex gap-2">
-                <input 
-                  type="url" 
-                  required 
-                  value={imageUrl} 
-                  onChange={(e) => setImageUrl(e.target.value)} 
-                  className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" 
-                  placeholder="https://res.cloudinary.com/..." 
-                />
-              </div>
-              <p className="text-xs text-slate-500 mt-2">Paste the direct URL from your Cloudinary media library.</p>
-            </div>
           </div>
 
           <hr className="border-slate-100" />
 
           <button 
             type="submit" 
-            disabled={loading}
-            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            disabled={loading || uploadingImages}
+            className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
           >
             {loading ? 'Publishing...' : 'Publish to Official Store'}
           </button>
