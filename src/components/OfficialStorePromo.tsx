@@ -32,12 +32,14 @@ export default function OfficialStorePromo() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
           </Link>
         </div>
-        
+
         <div className="md:col-span-5 grid grid-cols-2 gap-4">
           {[0, 1].map((index) => {
             const product = products[index];
-            return (
-              <div key={index} className={`bg-slate-800/50 border border-slate-700 rounded-2xl p-4 backdrop-blur-sm ${index === 1 ? 'mt-8' : ''}`}>
+            const baseClasses = `bg-slate-800/50 border border-slate-700 rounded-2xl p-4 backdrop-blur-sm ${index === 1 ? 'mt-8' : ''}`;
+
+            const cardContent = (
+              <>
                 <div className="w-full aspect-square bg-slate-700 rounded-xl mb-3 flex items-center justify-center overflow-hidden relative">
                   {product?.images?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -52,6 +54,25 @@ export default function OfficialStorePromo() {
                 <div className="bg-emerald-500/50 rounded px-2 py-1 truncate w-4/5">
                   <span className="text-emerald-100 text-xs font-bold">{product ? `UGX ${product.price.toLocaleString()}` : '\u00A0'}</span>
                 </div>
+              </>
+            );
+
+            // If product is loaded, wrap it in a clickable Link. Otherwise, render the static skeleton div.
+            if (product) {
+              return (
+                <Link 
+                  key={index} 
+                  href={`/s/${product.storeId}/p/${product.slug}`} 
+                  className={`${baseClasses} block hover:border-slate-500 transition-colors group`}
+                >
+                  {cardContent}
+                </Link>
+              );
+            }
+
+            return (
+              <div key={index} className={baseClasses}>
+                {cardContent}
               </div>
             );
           })}
