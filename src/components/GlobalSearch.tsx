@@ -1,71 +1,124 @@
-// src/components/GlobalSearch.tsx
+// src/components/SearchBar.tsx
 'use client';
 
-import algoliasearch from 'algoliasearch/lite';
-import { InstantSearch, SearchBox, Hits, Configure } from 'react-instantsearch';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { searchClient } from '@/lib/algolia';
 
-// Initialize the search client with the PUBLIC key
-const searchClient = algoliasearch(
-  process.env.NEXT_PUBLIC_ALGOLIA_APP_ID as string,
-  process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY as string
-);
+export default function SearchBar() {
+  const router = useRouter();
+  const [query, setQuery] = useState('');
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-// Custom UI for each individual search result
-function Hit({ hit }: any) {
+  // Close dropdown if user clicks outside of the search bar
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch live recommendations from Algolia as the user types
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (query.trim().length > 1) {
+        try {
+          const index = searchClient.initIndex('products');
+          // Fetch top 5 results for the dropdown
+          const { hits } = await index.search(query, { hitsPerPage: 5 });
+          setRecommendations(hits);
+          setIsOpen(true);
+        } catch (error) {
+          console.error("Algolia search error:", error);
+        }
+      } else {
+        setRecommendations([]);
+        setIsOpen(false);
+      }
+    };
+
+    // Tiny delay to prevent spamming the Algolia API on every single keystroke
+    const timeoutId = setTimeout(fetchRecommendations, 300);
+    return () => clearTimeout(timeoutId);
+  }, [query]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    setIsOpen(false);
+    // Route to the new results page
+    router.push(`/search?q=${encodeURIComponent(query)}`);
+  };
+
+  const handleRecommendationClick = (storeId: string, slug: string) => {
+    setIsOpen(false);
+    // Route directly to the product page
+    router.push(`/${storeId}/${slug}`); 
+  };
+
   return (
-    <Link href={`/s/${hit.storeId}/p/${hit.slug}`} className="flex items-center gap-4 p-3 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition group">
-      <div className="relative w-16 h-16 bg-slate-100 rounded-lg overflow-hidden shrink-0">
-        {hit.image ? (
-          <Image src={hit.image} alt={hit.title} fill className="object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-300">No Img</div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-semibold text-slate-800 line-clamp-1 group-hover:text-emerald-600 transition">
-          {hit.title}
-        </h4>
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-sm font-black text-slate-900">UGX {hit.price.toLocaleString()}</span>
-          <span className="text-xs font-medium px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full truncate max-w-[100px]">
-            Store: {hit.storeId}
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-export default function GlobalSearch() {
-  return (
-    <div className="w-full max-w-2xl mx-auto">
-      <InstantSearch searchClient={searchClient} indexName="products">
-        {/* Limit results to top 5 to keep the dropdown clean */}
-        <Configure hitsPerPage={5} /> 
+    // "max-w-md" drastically reduces the size compared to a full-width bar
+    <div className="relative w-full max-w-md mx-auto" ref={dropdownRef}>
+      <form onSubmit={handleSearchSubmit} className="flex items-center w-full bg-slate-50 border border-slate-200 rounded-full overflow-hidden transition-all focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 shadow-sm">
         
-        <div className="relative z-50">
-          <SearchBox 
-            placeholder="Search for phones, cement, shoes across Kabale..."
-            classNames={{
-              root: 'relative w-full',
-              form: 'relative flex items-center',
-              input: 'w-full px-4 py-3 pl-12 bg-white border-2 border-emerald-100 rounded-2xl focus:outline-none focus:border-emerald-500 text-slate-800 shadow-sm transition',
-              submitIcon: 'absolute left-4 w-5 h-5 text-emerald-600',
-              resetIcon: 'hidden', // Hide default reset to keep UI clean
-            }}
-          />
-          
-          <div className="absolute top-full left-0 right-0 mt-2">
-            {/* The Hits component automatically hides when the query is empty if configured, 
-                but we use CSS/Custom logic to wrap it cleanly */}
-            <div className="[&_.ais-Hits-list]:flex [&_.ais-Hits-list]:flex-col [&_.ais-Hits-list]:gap-2">
-              <Hits hitComponent={Hit} />
-            </div>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search for products, brands..."
+          className="flex-1 px-5 py-3 bg-transparent text-sm focus:outline-none"
+          autoComplete="off"
+        />
+
+        {/* The text button replacing the SVG icon */}
+        <button 
+          type="submit"
+          className="px-6 py-3 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
+        >
+          Search
+        </button>
+      </form>
+
+      {/* Live Recommendations Dropdown */}
+      {isOpen && recommendations.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden">
+          <div className="p-2">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-3 pt-2">Suggestions</h3>
+            {recommendations.map((hit) => (
+              <div 
+                key={hit.objectID}
+                onClick={() => handleRecommendationClick(hit.storeId, hit.slug)}
+                className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors"
+              >
+                {hit.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={hit.image} alt={hit.title} className="w-10 h-10 object-cover rounded-lg border border-slate-100" />
+                ) : (
+                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-xl">📦</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{hit.title}</p>
+                  <p className="text-xs text-slate-500 truncate">{hit.globalCategory}</p>
+                </div>
+                <div className="text-sm font-bold text-emerald-600">
+                  UGX {hit.price?.toLocaleString()}
+                </div>
+              </div>
+            ))}
           </div>
+          <button 
+            onClick={handleSearchSubmit}
+            className="w-full p-3 bg-slate-50 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors text-center border-t border-slate-100"
+          >
+            See all results for &quot;{query}&quot; &rarr;
+          </button>
         </div>
-      </InstantSearch>
+      )}
     </div>
   );
 }
