@@ -2,26 +2,27 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { NextResponse } from 'next/server';
 
+// 1. Explicitly configure Cloudinary first
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { paramsToSign } = body;
+    const { paramsToSign } = await request.json();
 
-    // 1. Safely grab the secret
-    const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
-
-    if (!apiSecret) {
-      console.error("Missing CLOUDINARY_API_SECRET in Vercel!");
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    if (!process.env.CLOUDINARY_API_SECRET) {
+      return NextResponse.json({ error: 'Missing API Secret' }, { status: 500 });
     }
 
-    // 2. Mathematically sign exactly what the frontend asked us to sign
+    // 2. Generate signature
     const signature = cloudinary.utils.api_sign_request(
       paramsToSign,
-      apiSecret
+      process.env.CLOUDINARY_API_SECRET
     );
 
-    // 3. Return just the signature
     return NextResponse.json({ signature });
   } catch (error) {
     console.error("Cloudinary signing error:", error);
