@@ -4,9 +4,12 @@
 import { useState } from 'react';
 import { createProduct } from '@/services/productService';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext'; // 🚨 1. Import Auth Context
 
 export default function AdminOfficialStorePage() {
   const router = useRouter();
+  const { profile } = useAuth(); // 🚨 2. Grab the current user's profile
+  
   const [loading, setLoading] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -39,14 +42,12 @@ export default function AdminOfficialStorePage() {
 
     try {
       for (const file of files) {
-        // 1. STRICT NUMBER format for the timestamp calculation
         const timestamp = Math.floor(Date.now() / 1000);
         const folder = 'kabale_products';
         
-        // 2. Alphabetical order for the backend
         const paramsToSign = {
           folder,
-          timestamp, // Passed as an integer!
+          timestamp, 
         };
 
         const signRes = await fetch('/api/cloudinary', {
@@ -58,7 +59,6 @@ export default function AdminOfficialStorePage() {
         if (!signRes.ok) throw new Error('Failed to get signature');
         const { signature } = await signRes.json();
 
-        // 3. Append to FormData (convert to String ONLY here)
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', apiKey);
@@ -103,6 +103,15 @@ export default function AdminOfficialStorePage() {
     setLoading(true);
 
     try {
+      // Safely extract the owner ID
+      const ownerId = (profile as any)?.id || (profile as any)?.uid;
+
+      if (!ownerId) {
+        alert("Authentication error: Could not verify your user ID.");
+        setLoading(false);
+        return;
+      }
+
       await createProduct({
         title,
         price: Number(price),
@@ -110,6 +119,7 @@ export default function AdminOfficialStorePage() {
         storeCategory: category,
         globalCategory: category,
         storeId: 'kabale-official',
+        ownerId: ownerId, // 🚨 3. Pass the ownerId to satisfy Firebase rules!
         images: images, 
         stock: 100, 
       });
@@ -117,11 +127,8 @@ export default function AdminOfficialStorePage() {
       router.push('/admin/products');
     } catch (error: any) {
       console.error("FIREBASE CRASH:", error);
-      
-      // 🚨 AGGRESSIVE DEBUG ALERT: This forces the raw error to show on your phone
       const errorDetails = error?.message || JSON.stringify(error) || "Unknown Error";
       alert(`FIREBASE ERROR:\n\n${errorDetails}`);
-      
     } finally {
       setLoading(false);
     }
