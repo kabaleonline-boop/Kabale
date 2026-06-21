@@ -7,6 +7,9 @@ import Link from 'next/link';
 import { getProductsByCategory } from '@/services/productService';
 import { Product } from '@/types';
 
+// 🚨 Import our new reusable 1st Class UI component
+import ProductCard from '@/components/ProductCard';
+
 // This translates the URL slug back into the exact string stored in Firebase
 const categoryData: Record<string, { dbName: string; icon: string; description: string }> = {
   'phones-tablets': { dbName: 'Phones & Tablets', icon: '📱', description: 'The latest smartphones, tablets, and premium accessories.' },
@@ -78,39 +81,17 @@ export default function CategoryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {/* 🚨 Clean, modular mapping using the imported ProductCard */}
             {products.map((product) => (
-              <Link href={`/s/${product.storeId}/p/${product.slug}`} key={product.id}>
-                <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-shadow group h-full flex flex-col">
-
-                  <div className="aspect-square bg-slate-50 relative overflow-hidden">
-                    {product.images && product.images[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img 
-                        src={product.images[0]} 
-                        alt={product.title} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-4xl">📦</div>
-                    )}
-                  </div>
-
-                  <div className="p-4 flex flex-col flex-1">
-                    <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      {product.storeCategory || category.dbName}
-                    </p>
-                    <h3 className="font-semibold text-slate-900 line-clamp-2 mb-2 text-sm md:text-base">
-                      {product.title}
-                    </h3>
-                    <div className="mt-auto pt-2">
-                      <p className="text-base md:text-lg font-black text-emerald-600">
-                        UGX {product.price?.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                </div>
-              </Link>
+              <ProductCard 
+                key={product.id}
+                id={product.id}
+                storeId={product.storeId}
+                slug={product.slug}
+                title={product.title}
+                price={product.price}
+                image={product.images && product.images[0] ? product.images[0] : ''}
+              />
             ))}
           </div>
         )}
