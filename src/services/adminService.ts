@@ -2,7 +2,9 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, query, getCountFromServer } from 'firebase/firestore';
 import { StoreConfig, Product, UserProfile } from '@/types';
-import { productsIndex } from '@/lib/algolia';
+
+// 🚨 Replaced the old algolia import with our new secure Server Action
+import { removeProductFromSearch } from '@/services/algoliaServer';
 
 /**
  * Highly efficient query to get total counts without downloading document data
@@ -75,9 +77,9 @@ export async function deletePlatformProduct(productId: string): Promise<void> {
   try {
     // 1. Delete the source of truth from Firebase
     await deleteDoc(doc(db, 'products', productId));
-    
-    // 2. Delete from Algolia so buyers don't see dead search results
-    await productsIndex.deleteObject(productId);
+
+    // 2. Delete securely from Algolia using the Backend Server Action
+    await removeProductFromSearch(productId);
   } catch (error) {
     console.error('Error deleting product:', error);
     throw error;
