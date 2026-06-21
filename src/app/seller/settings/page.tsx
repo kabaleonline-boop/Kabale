@@ -24,19 +24,26 @@ export default function SellerSettingsPage() {
     fontFamily: 'Inter',
   });
 
-  // 🚨 Securely grab the exact URL slug saved to their profile during onboarding
   const storeSlug = (profile as any)?.storeSlug;
 
-  // Protect route and redirect to onboarding if somehow they got here without a slug
+  // Protect route and redirect to onboarding if missing slug
   useEffect(() => {
-    if (!authLoading && profile && profile.role === 'seller' && !storeSlug) {
-      router.push('/seller/onboarding');
+    if (!authLoading && profile) {
+      if (profile.role !== 'seller' && profile.role !== 'admin') {
+        router.push('/');
+      } else if (profile.role === 'seller' && !storeSlug) {
+        router.push('/seller/onboarding');
+      }
     }
   }, [profile, authLoading, storeSlug, router]);
 
   useEffect(() => {
     async function loadStore() {
-      if (!storeSlug) return; // Wait until the slug is fully loaded
+      // 🚨 FIX: If no slug, stop loading so it doesn't spin forever!
+      if (!storeSlug) {
+        setLoading(false);
+        return; 
+      }
       
       try {
         const config = await getStoreConfig(storeSlug);
@@ -58,7 +65,7 @@ export default function SellerSettingsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!storeSlug) {
-      alert('Authentication Error: Missing store URL slug.');
+      alert('Authentication Error: Missing store URL slug. Please complete onboarding.');
       return;
     }
 
