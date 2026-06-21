@@ -102,6 +102,15 @@ export default function AdminOfficialStorePage() {
     if (images.length === 0) return alert('Please upload an image.');
     setLoading(true);
 
+    // 🚨 GHOST BUSTER TEST: Verify Next.js actually baked the keys into the browser memory
+    const testKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    if (!testKey) {
+      console.error("ENVIRONMENT ERROR: NEXT_PUBLIC_FIREBASE_API_KEY is undefined in the browser.");
+      alert("Next.js did not inject the Firebase keys! Vercel is serving an old cached build.\n\nPlease go to Vercel and Redeploy with 'Use existing Build Cache' UNCHECKED.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const ownerId = (profile as any)?.id || (profile as any)?.uid;
 
@@ -111,7 +120,6 @@ export default function AdminOfficialStorePage() {
         return;
       }
 
-      // 🚨 Added "as any" to bypass TypeScript complaining about ownerId
       await createProduct({
         title,
         price: Number(price),
@@ -127,9 +135,11 @@ export default function AdminOfficialStorePage() {
       alert('Added to Official Store!');
       router.push('/admin/products');
     } catch (error: any) {
-      console.error("FIREBASE CRASH:", error);
-      const errorDetails = error?.message || JSON.stringify(error) || "Unknown Error";
-      alert(`FIREBASE ERROR:\n\n${errorDetails}`);
+      // 1. Native logging: Dumps the pure Firebase error object to your browser console
+      console.error(error);
+      
+      // 2. Pure alert: Shows only what Firebase says, with no added text
+      alert(error?.message || 'An unknown error occurred during upload.');
     } finally {
       setLoading(false);
     }
