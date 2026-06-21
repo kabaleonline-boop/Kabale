@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 export default function AddProductPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
-  
+
   const [loading, setLoading] = useState(false);
 
   // Form State
@@ -18,7 +18,7 @@ export default function AddProductPage() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Phones & Tablets');
   const [stock, setStock] = useState('10');
-  
+
   // Image Upload State
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -36,7 +36,7 @@ export default function AddProductPage() {
     if (files.length === 0) return;
 
     if (images.length + files.length > 5) {
-      alert('You can only upload a maximum of 5 images.');
+      alert('You can only upload a maximum of 5 images per product.');
       return;
     }
 
@@ -47,6 +47,8 @@ export default function AddProductPage() {
       for (const file of files) {
         // 1. Fetch secure signature with anti-caching
         const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
+        
+        if (!signRes.ok) throw new Error('Failed to securely sign the image upload request.');
         const signData = await signRes.json();
 
         // 2. Prepare payload
@@ -55,7 +57,6 @@ export default function AddProductPage() {
         formData.append('api_key', signData.apiKey);
         formData.append('timestamp', signData.timestamp);
         formData.append('signature', signData.signature);
-        // 🚨 CRITICAL FIX: Append the exact folder name sent by the backend
         formData.append('folder', signData.folder);
 
         // 3. Upload directly to Cloudinary
@@ -65,11 +66,10 @@ export default function AddProductPage() {
         });
 
         const uploadData = await uploadRes.json();
-        console.log("CLOUDINARY RESPONSE (SELLER):", uploadData);
 
         // 4. Safely extract the URL
         const finalUrl = uploadData.secure_url || uploadData.url;
-        
+
         if (finalUrl) {
           newImageUrls.push(finalUrl);
         } else {
@@ -77,14 +77,14 @@ export default function AddProductPage() {
           alert(`Image upload failed: ${uploadData.error?.message || 'Check console'}`);
         }
       }
-      
+
       // 5. Add successful uploads to state
       if (newImageUrls.length > 0) {
         setImages((prev) => [...prev, ...newImageUrls]);
       }
     } catch (error) {
       console.error('Image upload crash:', error);
-      alert('Failed to upload some images. Please try again.');
+      alert('A network error occurred while uploading your images. Please try again.');
     } finally {
       setUploadingImages(false);
     }
@@ -96,13 +96,13 @@ export default function AddProductPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (images.length === 0) {
-      alert('Please upload at least one image.');
+      alert('Please upload at least one product image.');
       return;
     }
 
-    // Completely bypass TypeScript strictness here
+    // Bypass TypeScript strictness to reliably extract the store ID
     const p = profile as any;
     const storeId = p?.storeSlug || p?.id || p?.uid;
 
@@ -114,6 +114,7 @@ export default function AddProductPage() {
     setLoading(true);
 
     try {
+      // Hands off to productService, which saves to Firebase and then triggers the Algolia Server Action
       await createProduct({
         title,
         price: Number(price),
@@ -127,9 +128,9 @@ export default function AddProductPage() {
 
       alert('Product published successfully!');
       router.push('/seller/settings'); 
-    } catch (error) {
-      console.error(error);
-      alert('Failed to add product.');
+    } catch (error: any) {
+      console.error("Publishing Error:", error);
+      alert(error?.message || 'Failed to publish the product to your storefront.');
     } finally {
       setLoading(false);
     }
@@ -138,70 +139,102 @@ export default function AddProductPage() {
   if (authLoading || !profile) return null;
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4">
+    <div className="max-w-3xl mx-auto py-8 px-4 sm:px-0">
+      
       <div className="mb-8">
-        <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
           <span className="text-emerald-500">📦</span> Add New Product
         </h1>
-        <p className="text-slate-500 text-sm">Upload inventory to your storefront.</p>
+        <p className="text-slate-500 mt-2">Upload inventory directly to your digital storefront.</p>
       </div>
 
-      <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
-        <form onSubmit={handleUpload} className="space-y-6">
+      <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-100 shadow-sm">
+        <form onSubmit={handleUpload} className="space-y-8">
+          
+          {/* Image Uploader */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-900 mb-4">Product Imagery</label>
+            <div className="flex flex-wrap gap-4">
+              {images.map((url, idx) => (
+                <div key={idx} className="relative w-28 h-28 rounded-xl border border-slate-200 overflow-hidden shadow-sm group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                  <button 
+                    type="button" 
+                    onClick={() => removeImage(idx)}
+                    className="absolute inset-0 bg-black/60 text-white text-sm font-medium opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+
+              {images.length < 5 && (
+                <label className="w-28 h-28 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 transition cursor-pointer text-slate-500 hover:text-emerald-600">
+                  {uploadingImages ? (
+                    <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span className="text-xs font-semibold">Upload Photo</span>
+                    </>
+                  )}
+                  <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImages} />
+                </label>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-3">Upload up to 5 high-quality images. The first image will be the cover.</p>
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* Form Fields Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Image Uploader */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-3">Product Images (Max 5)</label>
-              <div className="flex flex-wrap gap-4">
-                {images.map((url, idx) => (
-                  <div key={idx} className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm group">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
-                    <button 
-                      type="button" 
-                      onClick={() => removeImage(idx)}
-                      className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-
-                {images.length < 5 && (
-                  <label className="w-24 h-24 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 transition cursor-pointer text-slate-500 hover:text-emerald-600">
-                    {uploadingImages ? (
-                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <>
-                        <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                        <span className="text-xs font-semibold">Upload</span>
-                      </>
-                    )}
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImages} />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Product Title</label>
-              <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" placeholder="e.g., Samsung Galaxy S24" />
+              <label className="block text-sm font-semibold text-slate-900 mb-2">Product Title</label>
+              <input 
+                type="text" 
+                required 
+                value={title} 
+                onChange={(e) => setTitle(e.target.value)} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" 
+                placeholder="e.g., Samsung Galaxy S24" 
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Price (UGX)</label>
-              <input type="number" required value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" placeholder="e.g., 3500000" />
+              <label className="block text-sm font-semibold text-slate-900 mb-2">Price (UGX)</label>
+              <input 
+                type="number" 
+                required 
+                value={price} 
+                onChange={(e) => setPrice(e.target.value)} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" 
+                placeholder="0" 
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Stock Quantity</label>
-              <input type="number" required value={stock} onChange={(e) => setStock(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" min="1" />
+              <label className="block text-sm font-semibold text-slate-900 mb-2">Stock Quantity</label>
+              <input 
+                type="number" 
+                required 
+                value={stock} 
+                onChange={(e) => setStock(e.target.value)} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" 
+                min="1" 
+              />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition">
+              <label className="block text-sm font-semibold text-slate-900 mb-2">Category</label>
+              <select 
+                value={category} 
+                onChange={(e) => setCategory(e.target.value)} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              >
                 <option>Phones & Tablets</option>
                 <option>Computing</option>
                 <option>Home Appliances</option>
@@ -211,16 +244,33 @@ export default function AddProductPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Product Description</label>
-              <textarea required rows={4} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition resize-none" placeholder="Detail the specifications, warranty info, and features..." />
+              <label className="block text-sm font-semibold text-slate-900 mb-2">Product Description</label>
+              <textarea 
+                required 
+                rows={5} 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none" 
+                placeholder="Provide detailed specifications, warranty info, and features..." 
+              />
             </div>
           </div>
 
-          <hr className="border-slate-100" />
+          <div className="pt-4">
+            <button 
+              type="submit" 
+              disabled={loading || uploadingImages} 
+              className="w-full bg-emerald-600 text-white font-semibold py-4 rounded-xl hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Publishing...
+                </>
+              ) : 'Publish Product'}
+            </button>
+          </div>
 
-          <button type="submit" disabled={loading || uploadingImages} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-500 transition disabled:opacity-50 shadow-md">
-            {loading ? 'Publishing...' : 'Publish Product'}
-          </button>
         </form>
       </div>
     </div>
