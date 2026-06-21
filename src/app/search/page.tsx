@@ -7,8 +7,7 @@ import { searchClient } from '@/lib/algolia';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
-// We wrap the main content in a separate component so we can use Suspense 
-// (Next.js requires this when using useSearchParams in client components)
+// Wrapped in a separate component to safely use useSearchParams() with Next.js
 function SearchResultsContent() {
   const searchParams = useSearchParams();
   const q = searchParams.get('q') || '';
@@ -27,7 +26,7 @@ function SearchResultsContent() {
       setLoading(true);
       try {
         const index = searchClient.initIndex('products');
-        // Fetch up to 20 hits for the main search page
+        // Fetch up to 20 hits for the main search results page
         const { hits } = await index.search(q, { hitsPerPage: 20 });
         setResults(hits);
       } catch (error) {
@@ -66,8 +65,9 @@ function SearchResultsContent() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {results.map((product) => (
-            <Link href={`/${product.storeId}/${product.slug}`} key={product.objectID}>
-              <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-shadow group">
+            // 🚨 Updated URL structure to perfectly match your store architecture
+            <Link href={`/s/${product.storeId}/p/${product.slug}`} key={product.objectID}>
+              <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-shadow group h-full flex flex-col">
                 <div className="aspect-square bg-slate-50 relative overflow-hidden">
                   {product.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -80,10 +80,20 @@ function SearchResultsContent() {
                     <div className="w-full h-full flex items-center justify-center text-4xl">📦</div>
                   )}
                 </div>
-                <div className="p-4">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{product.globalCategory}</p>
-                  <h3 className="font-semibold text-slate-900 line-clamp-2 mb-2">{product.title}</h3>
-                  <p className="text-lg font-black text-emerald-600">UGX {product.price?.toLocaleString()}</p>
+                
+                {/* Flex-grow ensures buttons/prices align perfectly even if titles are different lengths */}
+                <div className="p-4 flex flex-col flex-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    {product.globalCategory}
+                  </p>
+                  <h3 className="font-semibold text-slate-900 line-clamp-2 mb-2">
+                    {product.title}
+                  </h3>
+                  <div className="mt-auto pt-2">
+                    <p className="text-lg font-black text-emerald-600">
+                      UGX {product.price?.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
               </div>
             </Link>
@@ -94,10 +104,14 @@ function SearchResultsContent() {
   );
 }
 
-// Main page export with Suspense boundary
+// The main default export with the Suspense boundary required by Next.js
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="p-10 text-center">Loading search...</div>}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
       <SearchResultsContent />
     </Suspense>
   );
