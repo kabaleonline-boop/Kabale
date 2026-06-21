@@ -1,138 +1,205 @@
 // src/app/seller/products/new/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useState, useEffect } from 'react';
 import { createProduct } from '@/services/productService';
-import ImageUploader from '@/components/seller/ImageUploader';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
-export default function NewProductPage() {
-  const { profile } = useAuth();
+export default function AddProductPage() {
   const router = useRouter();
+  const { profile, loading: authLoading } = useAuth();
   
+  const [loading, setLoading] = useState(false);
+
+  // Form State
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Phones & Tablets');
+  const [stock, setStock] = useState('10');
+  
+  // Image Upload State
   const [images, setImages] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Default slug fallback for safety
-  const storeSlug = profile?.displayName?.toLowerCase().replace(/\s+/g, '-') || 'my-shop';
+  // Protect route
+  useEffect(() => {
+    if (!authLoading && (!profile || profile.role !== 'seller')) {
+      router.push('/dashboard');
+    }
+  }, [profile, authLoading, router]);
 
-  const handleUploadSuccess = (url: string) => {
-    setImages((prev) => [...prev, url]);
-  };
+  // Secure Cloudinary Upload Handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-  const handleRemoveImage = (indexToRemove: number) => {
-    setImages((prev) => prev.filter((_, index) => index !== indexToRemove));
-  };
+    if (images.length + files.length > 5) {
+      alert('You can only upload a maximum of 5 images.');
+      return;
+    }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (images.length === 0) return alert('Please upload at least one image.');
-    
-    setSaving(true);
+    setUploadingImages(true);
+    const newImageUrls: string[] = [];
+
     try {
-      await createProduct({
-        storeId: storeSlug,
-        title,
-        description,
-        price: Number(price),
-        images,
-        globalCategory: 'Uncategorized', // MVP Default
-        storeCategory: 'Main',           // MVP Default
-        stock: 1,
-      });
-      
-      alert('Product created successfully!');
-      router.push('/seller/products'); // Redirect to inventory table
-    } catch (err) {
-      alert('Error creating product. Check the console.');
-      console.error(err);
+      for (const file of files) {
+        // Fetch secure signature
+        const signRes = await fetch('/api/cloudinary'); 
+        const signData = await signRes.json();
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('api_key', signData.apiKey);
+        formData.append('timestamp', signData.timestamp);
+        formData.append('signature', signData.signature);
+        formData.append('folder', 'seller_products'); 
+
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+        if (uploadData.secure_url) {
+          newImageUrls.push(uploadData.secure_url);
+        }
+      }
+      setImages((prev) => [...prev, ...newImageUrls]);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      alert('Failed to upload some images. Please try again.');
     } finally {
-      setSaving(false);
+      setUploadingImages(false);
     }
   };
 
+  const removeImage = (indexToRemove: number) => {
+    setImages(images.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (images.length === 0) {
+      alert('Please upload at least one image.');
+      return;
+    }
+
+    if (!profile?.storeSlug) {
+      alert('Store configuration error. Please contact support.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await createProduct({
+        title,
+        price: Number(price),
+        description,
+        storeCategory: category,
+        globalCategory: category,
+        storeId: profile.storeSlug, // Dynamically uses the seller's unique store ID
+        images: images, 
+        stock: Number(stock), 
+      });
+
+      alert('Product published successfully!');
+      router.push('/seller/settings'); // Or wherever you want them to go after upload
+    } catch (error) {
+      console.error(error);
+      alert('Failed to add product.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading || !profile) return null;
+
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
-      <div className="max-w-3xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900 mb-6">Add New Product</h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Image Gallery Section */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-3">Product Images</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-              {images.map((url, index) => (
-                <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 group">
-                  <Image src={url} alt={`Upload ${index}`} fill className="object-cover" />
-                  <button 
-                    type="button"
-                    onClick={() => handleRemoveImage(index)}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-              ))}
-              {/* Only allow up to 4 images to save Vercel/Cloudinary costs for MVP */}
-              {images.length < 4 && (
-                 <ImageUploader onUploadSuccess={handleUploadSuccess} />
-              )}
+    <div className="max-w-3xl mx-auto py-10 px-4">
+      <div className="mb-8">
+        <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+          <span className="text-emerald-500">📦</span> Add New Product
+        </h1>
+        <p className="text-slate-500 text-sm">Upload inventory to your storefront.</p>
+      </div>
+
+      <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
+        <form onSubmit={handleUpload} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Image Uploader */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-3">Product Images (Max 5)</label>
+              <div className="flex flex-wrap gap-4">
+                {images.map((url, idx) => (
+                  <div key={idx} className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm group">
+                    <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                    <button 
+                      type="button" 
+                      onClick={() => removeImage(idx)}
+                      className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+
+                {images.length < 5 && (
+                  <label className="w-24 h-24 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 transition cursor-pointer text-slate-500 hover:text-emerald-600">
+                    {uploadingImages ? (
+                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                        <span className="text-xs font-semibold">Upload</span>
+                      </>
+                    )}
+                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImages} />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Product Title</label>
+              <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" placeholder="e.g., Samsung Galaxy S24" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Price (UGX)</label>
+              <input type="number" required value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" placeholder="e.g., 3500000" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Stock Quantity</label>
+              <input type="number" required value={stock} onChange={(e) => setStock(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition" min="1" />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Category</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition">
+                <option>Phones & Tablets</option>
+                <option>Computing</option>
+                <option>Home Appliances</option>
+                <option>Hardware & Tools</option>
+                <option>Fashion</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Product Description</label>
+              <textarea required rows={4} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-emerald-600 transition resize-none" placeholder="Detail the specifications, warranty info, and features..." />
             </div>
           </div>
 
           <hr className="border-slate-100" />
 
-          {/* Details Section */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Product Title</label>
-              <input 
-                type="text" 
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-emerald-600"
-                placeholder="e.g. Samsung 43-inch Smart TV"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Price (UGX)</label>
-              <input 
-                type="number" 
-                required
-                min="0"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-emerald-600"
-                placeholder="e.g. 1200000"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Short Description</label>
-              <textarea 
-                required
-                rows={4}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-emerald-600"
-                placeholder="Condition, specs, warranty details..."
-              />
-            </div>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={saving}
-            className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 transition disabled:opacity-50"
-          >
-            {saving ? 'Publishing...' : 'Publish Product to Store'}
+          <button type="submit" disabled={loading || uploadingImages} className="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-500 transition disabled:opacity-50 shadow-md">
+            {loading ? 'Publishing...' : 'Publish Product'}
           </button>
         </form>
       </div>
