@@ -19,15 +19,19 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
     notFound();
   }
 
-  const { theme, storeName, whatsappNumber } = config;
+  const { theme, storeName, whatsappNumber, id } = config;
+  
+  // Safe fallbacks to prevent crashes if a database field is missing
+  const displayStoreName = storeName || 'Storefront';
+  const safeTheme = theme || { primaryColor: '#0f172a', accentColor: '#334155', layoutMode: 'bento-grid', fontFamily: 'Inter' };
 
   return (
     <div 
       className="min-h-screen bg-slate-50 dynamic-rendering-viewport pb-20"
       style={{ 
-        '--primary': theme.primaryColor, 
-        '--accent': theme.accentColor,
-        fontFamily: theme.fontFamily 
+        '--primary': safeTheme.primaryColor, 
+        '--accent': safeTheme.accentColor,
+        fontFamily: safeTheme.fontFamily 
       } as React.CSSProperties}
     >
       {/* Dynamic Store Header */}
@@ -35,9 +39,16 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-xl" style={{ backgroundColor: 'var(--primary)' }}>
-              {storeName.charAt(0).toUpperCase()}
+              {displayStoreName.charAt(0).toUpperCase()}
             </div>
-            <h1 className="font-bold text-slate-900 text-lg tracking-tight">{storeName}</h1>
+            <h1 className="font-bold text-slate-900 text-lg tracking-tight flex items-center gap-2">
+              {displayStoreName}
+              {id === 'kabale-official' && (
+                <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full tracking-wider">
+                  OFFICIAL
+                </span>
+              )}
+            </h1>
           </div>
           
           {whatsappNumber && (
@@ -66,7 +77,7 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
         ) : (
           <div className="w-full">
             {/* RESPONSIVE LAYOUT ENGINE */}
-            {theme.layoutMode === 'bento-grid' && (
+            {safeTheme.layoutMode === 'bento-grid' && (
                <div className="flex overflow-x-auto snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4 md:pb-0 scrollbar-hide">
                  {products.map((product) => (
                    <div key={product.id} className="snap-center shrink-0 w-[80vw] md:w-auto md:shrink">
@@ -77,7 +88,7 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
             )}
 
             {/* Linear List Mode */}
-            {theme.layoutMode === 'list' && (
+            {safeTheme.layoutMode === 'list' && (
               <div className="flex flex-col gap-4">
                  {products.map((product) => (
                    <div key={product.id} className="w-full md:w-2/3 lg:w-1/2 mx-auto">
@@ -88,7 +99,7 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
             )}
 
             {/* Compact Grid Mode */}
-            {theme.layoutMode === 'compact' && (
+            {safeTheme.layoutMode === 'compact' && (
               <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-6 gap-3">
                  {products.map((product) => (
                    <ProductCard key={product.id} product={product} storeSlug={params.store_slug} />
