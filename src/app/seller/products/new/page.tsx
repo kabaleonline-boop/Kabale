@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { createProduct } from '@/services/productService';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -16,7 +17,6 @@ export default function AddProductPage() {
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
-  // 🚨 Default category matches exact DB spelling
   const [category, setCategory] = useState('Phones & Tablets'); 
   const [stock, setStock] = useState('10');
 
@@ -24,12 +24,19 @@ export default function AddProductPage() {
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Protect route
+  // 🚨 Securely grab the exact URL slug saved to their profile
+  const storeSlug = (profile as any)?.storeSlug;
+
+  // Protect route and ensure they have a store slug
   useEffect(() => {
-    if (!authLoading && (!profile || profile.role !== 'seller')) {
-      router.push('/dashboard');
+    if (!authLoading && profile) {
+      if (profile.role !== 'seller') {
+        router.push('/');
+      } else if (!storeSlug) {
+        router.push('/seller/onboarding');
+      }
     }
-  }, [profile, authLoading, router]);
+  }, [profile, authLoading, storeSlug, router]);
 
   // Secure Cloudinary Upload Handler
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,32 +104,27 @@ export default function AddProductPage() {
       return;
     }
 
-    const p = profile as any;
-    const storeId = p?.storeSlug || p?.id || p?.uid;
-
-    if (!storeId) {
-      alert('Store configuration error. Please contact support.');
+    if (!storeSlug) {
+      alert('Store configuration error. Please ensure your store is fully set up.');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Hands off to productService: saves to Firebase first, 
-      // then seamlessly triggers our Next.js API Route to sync with Algolia
       await createProduct({
         title,
         price: Number(price),
         description,
         storeCategory: category,
         globalCategory: category,
-        storeId: storeId, 
+        storeId: storeSlug, // 🚨 Saving under their custom URL slug
         images: images, 
         stock: Number(stock), 
       });
 
       alert('Product published successfully!');
-      router.push('/seller/settings'); 
+      router.push('/seller/dashboard'); // 🚨 Send back to dashboard after success
     } catch (error: any) {
       console.error("Publishing Error:", error);
       alert(error?.message || 'Failed to publish the product to your storefront.');
@@ -136,12 +138,18 @@ export default function AddProductPage() {
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <span className="text-4xl">📦</span> Add New Product
-          </h1>
-          <p className="text-slate-500 mt-2 text-lg">Upload premium inventory directly to your digital storefront.</p>
+
+        {/* 🚨 Added the Dashboard Back Button to the Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <span className="text-4xl">📦</span> Add Product
+            </h1>
+            <p className="text-slate-500 mt-2 text-lg">Upload inventory directly to your digital storefront.</p>
+          </div>
+          <Link href="/seller/dashboard" className="hidden sm:inline-flex text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-wider bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200">
+            &larr; Dashboard
+          </Link>
         </div>
 
         <div className="bg-white p-6 md:p-10 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
@@ -190,7 +198,7 @@ export default function AddProductPage() {
 
             {/* Form Fields Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-bold text-slate-900 mb-2">Product Title</label>
                 <input 
@@ -235,7 +243,6 @@ export default function AddProductPage() {
                   className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900 appearance-none"
                   style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundPosition: `right 1.25rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.2em 1.2em` }}
                 >
-                  {/* 🚨 Updated with the 6 Global Categories */}
                   <option value="Phones & Tablets">📱 Phones & Tablets</option>
                   <option value="Computing">💻 Computing</option>
                   <option value="Home Appliances">📺 Home Appliances</option>
@@ -259,7 +266,13 @@ export default function AddProductPage() {
               </div>
             </div>
 
-            <div className="pt-6">
+            <div className="pt-6 flex flex-col sm:flex-row gap-4">
+              <Link 
+                href="/seller/dashboard" 
+                className="w-full sm:w-auto text-center bg-slate-100 text-slate-900 font-bold py-5 px-8 rounded-2xl hover:bg-slate-200 transition-all duration-200"
+              >
+                Cancel
+              </Link>
               <button 
                 type="submit" 
                 disabled={loading || uploadingImages} 
