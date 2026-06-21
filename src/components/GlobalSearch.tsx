@@ -29,7 +29,6 @@ export default function SearchBar() {
       if (query.trim().length > 1) {
         try {
           const index = searchClient.initIndex('products');
-          // Fetch top 5 results for the dropdown
           const { hits } = await index.search(query, { hitsPerPage: 5 });
           setRecommendations(hits);
           setIsOpen(true);
@@ -42,7 +41,6 @@ export default function SearchBar() {
       }
     };
 
-    // Tiny delay to prevent spamming the Algolia API on every single keystroke
     const timeoutId = setTimeout(fetchRecommendations, 300);
     return () => clearTimeout(timeoutId);
   }, [query]);
@@ -51,34 +49,35 @@ export default function SearchBar() {
     e.preventDefault();
     if (!query.trim()) return;
     setIsOpen(false);
-    // Route to the new results page
     router.push(`/search?q=${encodeURIComponent(query)}`);
   };
 
   const handleRecommendationClick = (storeId: string, slug: string) => {
     setIsOpen(false);
-    // Route directly to the product page
-    router.push(`/${storeId}/${slug}`); 
+    router.push(`/s/${storeId}/p/${slug}`); 
   };
 
   return (
-    // "max-w-md" drastically reduces the size compared to a full-width bar
-    <div className="relative w-full max-w-md mx-auto" ref={dropdownRef}>
-      <form onSubmit={handleSearchSubmit} className="flex items-center w-full bg-slate-50 border border-slate-200 rounded-full overflow-hidden transition-all focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 shadow-sm">
+    // WIDENED: w-[96%] makes it almost edge-to-edge on mobile. max-w-2xl keeps it wide but contained on desktop.
+    <div className="relative w-[96%] md:w-full md:max-w-2xl mx-auto" ref={dropdownRef}>
+      
+      {/* SLIMMED: Fixed height using h-9 (36px) on mobile and h-10 (40px) on desktop to cut the vertical size in half */}
+      <form onSubmit={handleSearchSubmit} className="flex items-center w-full h-9 md:h-10 bg-slate-50 border border-slate-200 rounded-full overflow-hidden transition-all focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 shadow-sm">
         
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search for products, brands..."
-          className="flex-1 px-5 py-3 bg-transparent text-sm focus:outline-none"
+          placeholder="Search..."
+          // h-full forces the input to respect the slim height of the parent form
+          className="flex-1 px-4 h-full text-sm bg-transparent focus:outline-none"
           autoComplete="off"
         />
 
-        {/* The text button replacing the SVG icon */}
+        {/* Text-based button that matches the slim height perfectly */}
         <button 
           type="submit"
-          className="px-6 py-3 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
+          className="px-5 h-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
         >
           Search
         </button>
@@ -93,19 +92,19 @@ export default function SearchBar() {
               <div 
                 key={hit.objectID}
                 onClick={() => handleRecommendationClick(hit.storeId, hit.slug)}
-                className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors"
+                className="flex items-center gap-3 p-2 md:p-3 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors"
               >
                 {hit.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={hit.image} alt={hit.title} className="w-10 h-10 object-cover rounded-lg border border-slate-100" />
+                  <img src={hit.image} alt={hit.title} className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-lg border border-slate-100" />
                 ) : (
-                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-xl">📦</div>
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-100 rounded-lg flex items-center justify-center text-lg md:text-xl">📦</div>
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-900 truncate">{hit.title}</p>
-                  <p className="text-xs text-slate-500 truncate">{hit.globalCategory}</p>
+                  <p className="text-[10px] md:text-xs text-slate-500 truncate">{hit.globalCategory}</p>
                 </div>
-                <div className="text-sm font-bold text-emerald-600">
+                <div className="text-xs md:text-sm font-bold text-emerald-600">
                   UGX {hit.price?.toLocaleString()}
                 </div>
               </div>
@@ -113,7 +112,7 @@ export default function SearchBar() {
           </div>
           <button 
             onClick={handleSearchSubmit}
-            className="w-full p-3 bg-slate-50 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors text-center border-t border-slate-100"
+            className="w-full p-2 md:p-3 bg-slate-50 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors text-center border-t border-slate-100"
           >
             See all results for &quot;{query}&quot; &rarr;
           </button>
