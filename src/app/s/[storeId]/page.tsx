@@ -3,7 +3,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getStoreConfig } from '@/services/storeService';
+// 🚨 Import our new incrementStoreViews function
+import { getStoreConfig, incrementStoreViews } from '@/services/storeService';
 import { getProductsByStore } from '@/services/productService';
 import { StoreConfig, Product } from '@/types';
 import ProductCard from '@/components/ProductCard';
@@ -16,14 +17,13 @@ export default function StorefrontPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 1. Fetch Store Data
   useEffect(() => {
     async function loadStoreData() {
       try {
-        // Fetch store settings (colors, name, description, whatsapp)
         const storeConfig = await getStoreConfig(storeId);
         setConfig(storeConfig || null);
 
-        // Fetch store inventory
         const storeProducts = await getProductsByStore(storeId);
         setProducts(storeProducts);
       } catch (error) {
@@ -34,6 +34,23 @@ export default function StorefrontPage() {
     }
 
     if (storeId) loadStoreData();
+  }, [storeId]);
+
+  // 2. 🚨 Record the View (Anti-Spam logic)
+  useEffect(() => {
+    if (!storeId) return;
+
+    // We create a unique key for this specific store
+    const viewKey = `viewed_store_${storeId}`;
+
+    // If sessionStorage doesn't have this key, it means this is their first time viewing it this session
+    if (!sessionStorage.getItem(viewKey)) {
+      // Tell Firebase to add +1 to the views
+      incrementStoreViews(storeId);
+      
+      // Save to sessionStorage so if they refresh the page, we don't count them again!
+      sessionStorage.setItem(viewKey, 'true');
+    }
   }, [storeId]);
 
   if (loading) {
@@ -54,7 +71,6 @@ export default function StorefrontPage() {
     );
   }
 
-  // Format WhatsApp link correctly (remove spaces/pluses)
   const waLink = config.whatsappNumber 
     ? `https://wa.me/${config.whatsappNumber.replace(/\D/g, '')}` 
     : '#';
@@ -62,14 +78,13 @@ export default function StorefrontPage() {
   return (
     <div className="min-h-screen bg-white">
       
-      {/* Store Header (Powered by Custom Theme) */}
+      {/* Store Header */}
       <div 
         className="py-16 md:py-20 px-4 transition-colors duration-500" 
         style={{ backgroundColor: config.theme?.primaryColor || '#0f172a' }}
       >
         <div className="max-w-7xl mx-auto text-center">
           <div className="w-24 h-24 mx-auto bg-white rounded-3xl shadow-xl flex items-center justify-center text-4xl mb-6 overflow-hidden">
-             {/* Fallback avatar if no logo exists yet */}
             <span style={{ color: config.theme?.primaryColor || '#0f172a' }}>🛍️</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
