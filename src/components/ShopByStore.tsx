@@ -16,14 +16,14 @@ export default function ShopByStore() {
     async function fetchStores() {
       try {
         const allStores = await getAllStores();
-        
+
         // Find official store to ensure it's included in the homepage preview
         const official = allStores.find(s => s.id === 'kabale-official');
         const others = allStores.filter(s => s.id !== 'kabale-official');
-        
+
         // Sort others by views (if views don't exist yet, it falls back safely to 0)
         others.sort((a, b) => ((b as any).views || 0) - ((a as any).views || 0));
-        
+
         // Take official + top 3 others for the homepage preview
         const preview = official ? [official, ...others.slice(0, 3)] : others.slice(0, 4);
         setStores(preview);
@@ -42,7 +42,7 @@ export default function ShopByStore() {
   return (
     <section className="py-20 bg-white border-t border-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div className="flex items-end justify-between mb-8">
           <div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Shop by Store</h2>
@@ -58,7 +58,8 @@ export default function ShopByStore() {
             <Link 
               key={store.id} 
               href={`/s/${store.id}`}
-              className="bg-slate-50 rounded-2xl p-6 border border-slate-100 hover:border-emerald-500/30 hover:shadow-lg transition-all group flex flex-col h-full"
+              // 🚨 Updated: Added black border (border-slate-900) to the store cards
+              className="bg-white rounded-2xl p-6 border border-slate-900 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group flex flex-col h-full"
             >
               <div className="flex items-center gap-4 mb-4">
                 <div 
@@ -87,8 +88,12 @@ export default function ShopByStore() {
         </div>
 
         {/* Mobile View All Button */}
-        <div className="mt-6 sm:hidden">
-          <Link href="/stores" className="block w-full text-center bg-slate-100 text-slate-900 font-bold py-3 rounded-xl hover:bg-slate-200 transition-colors">
+        <div className="mt-8 sm:hidden">
+          <Link 
+            href="/stores" 
+            // 🚨 Updated: Added green boundary (border-emerald-600) to the mobile view all button
+            className="block w-full text-center bg-white text-emerald-600 border-2 border-emerald-600 font-bold py-3.5 rounded-xl hover:bg-emerald-50 transition-colors shadow-sm"
+          >
             View All Stores
           </Link>
         </div>
