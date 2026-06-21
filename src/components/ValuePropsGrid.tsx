@@ -21,8 +21,10 @@ export default function ValuePropsGrid() {
 
   return (
     <section className="py-16 bg-white border-t border-slate-100">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-y-2 gap-x-4 md:gap-x-6">
+      {/* Widened to max-w-7xl so the 4 columns have enough room on desktop */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Changed to md:grid-cols-4 so they all sit on a single line on desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-2 gap-x-4 md:gap-6">
           {values.map((val, idx) => (
             <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden shadow-sm group">
               {/* eslint-disable-next-line @next/next/no-img-element */}
