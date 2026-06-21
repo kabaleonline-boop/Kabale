@@ -2,13 +2,20 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
+// 🚨 CRITICAL FIX: Forces Next.js to read live environment variables on every single request
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const timestamp = Math.round(new Date().getTime() / 1000).toString();
+    
+    // Support both NEXT_PUBLIC and standard naming conventions
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY;
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME;
 
-    if (!apiSecret) {
-      console.error("Missing CLOUDINARY_API_SECRET in .env.local");
+    if (!apiSecret || !apiKey || !cloudName) {
+      console.error("Missing Cloudinary environment variables in Vercel!");
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
@@ -21,8 +28,8 @@ export async function GET() {
     return NextResponse.json({
       timestamp,
       signature,
-      apiKey: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-      cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+      apiKey,
+      cloudName,
     });
   } catch (error) {
     console.error("Cloudinary signing error:", error);
