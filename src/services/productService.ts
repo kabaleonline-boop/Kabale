@@ -116,11 +116,11 @@ export async function getGlobalProductsFeed(lastVisibleDoc: QueryDocumentSnapsho
   try {
     const productsRef = collection(db, 'products');
     let q = query(productsRef, orderBy('createdAt', 'desc'), limit(pageSize));
-    
+
     if (lastVisibleDoc) {
       q = query(productsRef, orderBy('createdAt', 'desc'), startAfter(lastVisibleDoc), limit(pageSize));
     }
-    
+
     const snapshot = await getDocs(q);
     const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
     const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
@@ -131,19 +131,28 @@ export async function getGlobalProductsFeed(lastVisibleDoc: QueryDocumentSnapsho
 }
 
 /**
- * Fetches all products that belong to a specific global category
+ * Fetches products by category with infinite scroll (pagination) support
  */
-export async function getProductsByCategory(categoryName: string): Promise<Product[]> {
+export async function getProductsByCategory(
+  categoryName: string, 
+  lastVisibleDoc: QueryDocumentSnapshot<DocumentData> | null = null, 
+  pageSize: number = 12
+) {
   try {
-    const q = query(
-      collection(db, 'products'),
-      where('globalCategory', '==', categoryName)
-    );
+    const productsRef = collection(db, 'products');
+    let q = query(productsRef, where('globalCategory', '==', categoryName), limit(pageSize));
 
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data() as Product);
+    if (lastVisibleDoc) {
+      q = query(productsRef, where('globalCategory', '==', categoryName), startAfter(lastVisibleDoc), limit(pageSize));
+    }
+
+    const snapshot = await getDocs(q);
+    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
+    
+    return { products, lastDoc };
   } catch (error) {
     console.error('Error fetching category products:', error);
-    return [];
+    return { products: [], lastDoc: null };
   }
 }
