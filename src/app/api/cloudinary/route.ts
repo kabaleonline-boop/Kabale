@@ -1,37 +1,33 @@
 // src/app/api/cloudinary/route.ts
 import { NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
+import crypto from 'crypto';
 
-// Forces Next.js to read live environment variables on every request
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const timestamp = Math.round(new Date().getTime() / 1000);
+    const timestamp = Math.round(new Date().getTime() / 1000).toString();
+    const folder = 'kabale_products';
 
-    // Safely grab keys, checking both NEXT_PUBLIC and standard names
-    const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME;
+    // .trim() prevents invisible spaces from breaking the security hash
+    const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+    const apiKey = (process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY)?.trim();
+    const cloudName = (process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME)?.trim();
 
     if (!apiSecret || !apiKey || !cloudName) {
       console.error("Missing Cloudinary environment variables!");
       return NextResponse.json({ error: 'Server config error' }, { status: 500 });
     }
 
-    // Define the folder here on the backend
-    const folder = 'kabale_products';
+    // THIS IS THE EXACT STRING FROM YOUR SCREENSHOT (Alphabetical order required)
+    const stringToSign = `folder=${folder}&timestamp=${timestamp}`;
 
-    // Use the OFFICIAL Cloudinary SDK to generate the signature (100% foolproof)
-    const signature = cloudinary.utils.api_sign_request(
-      {
-        timestamp: timestamp,
-        folder: folder,
-      },
-      apiSecret
-    );
+    // Hash the exact string + API Secret
+    const signature = crypto
+      .createHash('sha1')
+      .update(stringToSign + apiSecret)
+      .digest('hex');
 
-    // Send everything the frontend needs, including the exact folder name
     return NextResponse.json({
       timestamp,
       signature,
