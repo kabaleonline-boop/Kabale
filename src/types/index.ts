@@ -6,13 +6,14 @@ export interface UserProfile {
   displayName: string | null;
   photoURL: string | null;
   role: 'buyer' | 'seller' | 'admin';
+  storeSlug?: string; // 🚨 Added so TS knows sellers have a custom URL
   createdAt: any;
 }
 
 export interface StoreTheme {
   primaryColor: string;
   accentColor: string;
-  layoutMode: 'bento-grid' | 'list' | 'compact';
+  layoutMode: 'bento-grid' | 'list' | 'compact' | string;
   fontFamily: string;
 }
 
@@ -31,13 +32,15 @@ export interface StoreConfig {
   storeName: string;
   ownerId: string;
   verified: boolean;
+  description?: string; // 🚨 FIX: Added missing description field
+  views?: number;       // 🚨 FIX: Added views counter for directory sorting
   logoUrl?: string;
   bannerUrl?: string;
   whatsappNumber?: string;
   storePolicies?: string;
   theme: StoreTheme;
-  navigation: StoreNavigation[];
-  homepageLayout: LayoutBlock[];
+  navigation?: StoreNavigation[]; // Made optional for easy onboarding
+  homepageLayout?: LayoutBlock[]; // Made optional for easy onboarding
 }
 
 export interface Product {
