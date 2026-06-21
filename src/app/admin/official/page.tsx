@@ -115,9 +115,13 @@ export default function AdminOfficialStorePage() {
       });
       alert('Added to Official Store!');
       router.push('/admin/products');
-    } catch (error) {
-      console.error(error);
-      alert('Failed to add product.');
+    } catch (error: any) {
+      console.error("FIREBASE CRASH:", error);
+      
+      // 🚨 AGGRESSIVE DEBUG ALERT: This forces the raw error to show on your phone
+      const errorDetails = error?.message || JSON.stringify(error) || "Unknown Error";
+      alert(`FIREBASE ERROR:\n\n${errorDetails}`);
+      
     } finally {
       setLoading(false);
     }
