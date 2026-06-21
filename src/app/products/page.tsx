@@ -5,7 +5,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getGlobalProductsFeed } from '@/services/productService';
 import { Product } from '@/types';
 import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-import ProductCard from '@/components/storefront/ProductCard';
+
+// 🚨 Import our new 1st Class UI minimalist ProductCard
+import ProductCard from '@/components/ProductCard';
 import ProductSkeleton from '@/components/ui/ProductSkeleton';
 
 export default function GlobalProductsFeedPage() {
@@ -31,16 +33,16 @@ export default function GlobalProductsFeedPage() {
   const observer = useRef<IntersectionObserver | null>(null);
   const lastProductElementRef = useCallback((node: HTMLDivElement | null) => {
     if (loadingMore || loading) return;
-    
+
     if (observer.current) observer.current.disconnect();
-    
+
     observer.current = new IntersectionObserver(entries => {
       // If the last element is visible and we have more data to fetch
       if (entries[0].isIntersecting && hasMore) {
         fetchMoreProducts();
       }
     });
-    
+
     if (node) observer.current.observe(node);
   }, [loadingMore, loading, hasMore]);
 
@@ -49,13 +51,13 @@ export default function GlobalProductsFeedPage() {
     setLoadingMore(true);
 
     const { products: newProducts, lastDoc: newLastDoc } = await getGlobalProductsFeed(lastDoc, 12);
-    
+
     setProducts(prev => [...prev, ...newProducts]);
     setLastDoc(newLastDoc);
-    
+
     // If we fetched fewer items than the page size, we hit the end of the database
     if (newProducts.length < 12) setHasMore(false);
-    
+
     setLoadingMore(false);
   };
 
@@ -68,7 +70,7 @@ export default function GlobalProductsFeedPage() {
 
       {/* Initial Loading Skeletons */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
           {[...Array(10)].map((_, i) => <ProductSkeleton key={i} />)}
         </div>
       ) : products.length === 0 ? (
@@ -78,28 +80,28 @@ export default function GlobalProductsFeedPage() {
       ) : (
         <div className="flex flex-col gap-8">
           {/* Products Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-x-6 md:gap-y-10">
             {products.map((product, index) => {
-              // Attach the observer to the very last product card in the current array
-              if (products.length === index + 1) {
-                return (
-                  <div ref={lastProductElementRef} key={product.id}>
-                    <ProductCard product={product} storeSlug={product.storeId} />
-                  </div>
-                );
-              } else {
-                return (
-                  <div key={product.id}>
-                    <ProductCard product={product} storeSlug={product.storeId} />
-                  </div>
-                );
-              }
+              const isLastElement = products.length === index + 1;
+              
+              return (
+                <div ref={isLastElement ? lastProductElementRef : null} key={product.id}>
+                  <ProductCard 
+                    id={product.id}
+                    storeId={product.storeId}
+                    slug={product.slug}
+                    title={product.title}
+                    price={product.price}
+                    image={product.images && product.images[0] ? product.images[0] : ''}
+                  />
+                </div>
+              );
             })}
           </div>
 
           {/* Loading More Indicator Skeletons */}
           {loadingMore && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {[...Array(5)].map((_, i) => <ProductSkeleton key={`loading-${i}`} />)}
             </div>
           )}
