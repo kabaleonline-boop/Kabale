@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { createProduct } from '@/services/productService';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 
 export default function AdminOfficialStorePage() {
   const router = useRouter();
@@ -36,18 +35,16 @@ export default function AdminOfficialStorePage() {
 
     try {
       for (const file of files) {
-        // 1. Fetch secure signature from your API route
-        // Note: Ensure this URL matches the signature API route you built (e.g., /api/cloudinary, /api/sign, etc.)
-        const signRes = await fetch('/api/cloudinary'); 
+        // 1. Fetch secure signature with anti-caching enabled
+        const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
         const signData = await signRes.json();
 
-        // 2. Prepare payload
+        // 2. Prepare payload (NOTICE: No folder appended here!)
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', signData.apiKey);
         formData.append('timestamp', signData.timestamp);
         formData.append('signature', signData.signature);
-        formData.append('folder', 'kabale_products'); // Optional: Keeps your Cloudinary organized
 
         // 3. Upload directly to Cloudinary
         const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
@@ -56,15 +53,25 @@ export default function AdminOfficialStorePage() {
         });
 
         const uploadData = await uploadRes.json();
-        if (uploadData.secure_url) {
-          newImageUrls.push(uploadData.secure_url);
+        console.log("CLOUDINARY RESPONSE:", uploadData); // <-- This will tell us if it fails
+
+        // 4. Safely extract the URL
+        const finalUrl = uploadData.secure_url || uploadData.url;
+        
+        if (finalUrl) {
+          newImageUrls.push(finalUrl);
+        } else {
+          console.error("Cloudinary rejected the image:", uploadData);
+          alert(`Image upload failed: ${uploadData.error?.message || 'Check console'}`);
         }
       }
 
-      // Add successful uploads to state
-      setImages((prev) => [...prev, ...newImageUrls]);
+      // 5. Add successful uploads to state
+      if (newImageUrls.length > 0) {
+        setImages((prev) => [...prev, ...newImageUrls]);
+      }
     } catch (error) {
-      console.error('Image upload failed:', error);
+      console.error('Image upload crash:', error);
       alert('Failed to upload some images. Please try again.');
     } finally {
       setUploadingImages(false);
@@ -93,7 +100,7 @@ export default function AdminOfficialStorePage() {
         storeCategory: category,
         globalCategory: category,
         storeId: 'kabale-official', // Hardcoded to the Official Store
-        images: images, // Pass the array of uploaded Cloudinary URLs
+        images: images, 
         stock: 100, 
       });
 
@@ -128,6 +135,7 @@ export default function AdminOfficialStorePage() {
                 {/* Previews */}
                 {images.map((url, idx) => (
                   <div key={idx} className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                     <button 
                       type="button" 
