@@ -12,6 +12,9 @@ export default function SellLandingPage() {
   const [upgrading, setUpgrading] = useState(false);
   const router = useRouter();
 
+  // Safe check to see if they actually completed store setup
+  const hasStore = (profile as any)?.storeSlug;
+
   // The engine that converts a regular user into a seller
   const handleCreateStore = async () => {
     if (!profile) return;
@@ -21,8 +24,7 @@ export default function SellLandingPage() {
       const userRef = doc(db, 'users', profile.uid);
       await updateDoc(userRef, { role: 'seller' });
       
-      // Use window.location.href to force a hard reload. 
-      // This guarantees the AuthContext refreshes the role to 'seller' immediately.
+      // Force reload to guarantee AuthContext refreshes the role to 'seller' immediately
       window.location.href = '/seller/onboarding';
 
     } catch (error) {
@@ -57,21 +59,38 @@ export default function SellLandingPage() {
             >
               Sign In to Open a Store
             </button>
-          ) : profile.role === 'seller' || profile.role === 'admin' ? (
+          ) : profile.role === 'seller' && hasStore ? (
+            // User is a fully setup seller
             <button 
-              // 🚨 Updated: Routes to the new central dashboard instead of settings
               onClick={() => router.push('/seller/dashboard')}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 px-10 rounded-full text-lg transition shadow-xl shadow-emerald-900/50"
             >
               Go to My Dashboard
             </button>
+          ) : profile.role === 'admin' ? (
+             // User is an Admin
+            <button 
+              onClick={() => router.push('/admin')}
+              className="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 px-10 rounded-full text-lg transition shadow-xl shadow-purple-900/50"
+            >
+              Admin Command Center
+            </button>
+          ) : profile.role === 'seller' && !hasStore ? (
+            // User is a seller but hasn't picked a URL yet
+            <button 
+              onClick={() => router.push('/seller/onboarding')}
+              className="bg-amber-500 hover:bg-amber-400 text-white font-black py-4 px-10 rounded-full text-lg transition shadow-xl shadow-amber-900/50"
+            >
+              Finish Setting Up Store
+            </button>
           ) : (
+            // User is a standard buyer
             <button 
               onClick={handleCreateStore}
               disabled={upgrading}
               className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-400 text-white font-black py-4 px-10 rounded-full text-lg transition shadow-xl shadow-emerald-900/50"
             >
-              {upgrading ? 'Setting up your shop...' : 'Create My Free Store Now'}
+              {upgrading ? 'Setting up your shop...' : 'Get Started'}
             </button>
           )}
         </div>
