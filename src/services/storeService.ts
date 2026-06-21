@@ -1,6 +1,15 @@
 // src/services/storeService.ts
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  getDocs, 
+  collection, 
+  query, 
+  increment 
+} from 'firebase/firestore';
 import { StoreConfig } from '@/types';
 
 /**
@@ -16,7 +25,7 @@ export async function getStoreConfig(storeSlug: string): Promise<StoreConfig | n
     if (docSnap.exists()) {
       // 🚨 FIX: Manually combine the Document ID with the document data
       return { 
-        id: docSnap.id, // This is your 'kabale-official' slug
+        id: docSnap.id, // This is your store slug (e.g., 'kabale-official')
         ...docSnap.data() 
       } as StoreConfig;
     }
@@ -38,5 +47,43 @@ export async function saveStoreConfig(storeSlug: string, config: Partial<StoreCo
   } catch (error) {
     console.error('Error saving store config:', error);
     throw error;
+  }
+}
+
+/**
+ * Fetches all active stores to display in the store directory.
+ */
+export async function getAllStores(): Promise<(StoreConfig & { id: string; views?: number })[]> {
+  try {
+    // Optionally, you can add where('verified', '==', true) if you only want approved stores
+    const q = query(collection(db, 'stores'));
+    const snapshot = await getDocs(q);
+    
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as (StoreConfig & { id: string; views?: number })[];
+  } catch (error) {
+    console.error('Failed to fetch stores:', error);
+    return [];
+  }
+}
+
+/**
+ * Atomically increments the view count for a specific store.
+ * We use increment(1) so that concurrent visits don't overwrite each other.
+ */
+export async function incrementStoreViews(storeId: string): Promise<void> {
+  if (!storeId) return;
+  
+  try {
+    const storeRef = doc(db, 'stores', storeId);
+    await updateDoc(storeRef, {
+      views: increment(1)
+    });
+  } catch (error) {
+    // If the store document doesn't have a views field yet, or doesn't exist, it might throw.
+    // We catch it silently so it doesn't break the user experience.
+    console.error('Failed to increment store views:', error);
   }
 }
