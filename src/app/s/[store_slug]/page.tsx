@@ -4,8 +4,9 @@ import { getStoreConfig } from '@/services/storeService';
 import { getProductsByStore } from '@/services/productService';
 import ProductCard from '@/components/storefront/ProductCard';
 
-// Force dynamic rendering to ensure fresh inventory and layout data
+// Force dynamic rendering AND completely disable cache for this route
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function StorefrontPage({ params }: { params: { store_slug: string } }) {
   // 1. Fetch Store Config & Products concurrently
@@ -14,15 +15,27 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
     getProductsByStore(params.store_slug)
   ]);
 
-  // If the store doesn't exist, Next.js handles the 404 cleanly
   if (!config) {
     notFound();
   }
 
-  const { theme, storeName, whatsappNumber, id } = config;
+  // 🚨 THE TRUTH TELLER: Look at your terminal/Vercel logs to see exactly what Firebase returned!
+  console.log('--- FETCHED STORE CONFIG FOR', params.store_slug, '---');
+  console.log(config);
+
+  // Destructure with aggressive default fallbacks just in case
+  const { 
+    theme, 
+    storeName, 
+    whatsappNumber, 
+    id 
+  } = config;
   
-  // Safe fallbacks to prevent crashes if a database field is missing
-  const displayStoreName = storeName || 'Storefront';
+  // Enforce a strict string fallback to guarantee .charAt() never crashes again
+  const displayStoreName = (typeof storeName === 'string' && storeName.trim() !== '') 
+    ? storeName 
+    : 'Storefront';
+
   const safeTheme = theme || { primaryColor: '#0f172a', accentColor: '#334155', layoutMode: 'bento-grid', fontFamily: 'Inter' };
 
   return (
@@ -76,7 +89,6 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
           </div>
         ) : (
           <div className="w-full">
-            {/* RESPONSIVE LAYOUT ENGINE */}
             {safeTheme.layoutMode === 'bento-grid' && (
                <div className="flex overflow-x-auto snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4 md:pb-0 scrollbar-hide">
                  {products.map((product) => (
@@ -87,7 +99,6 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
                </div>
             )}
 
-            {/* Linear List Mode */}
             {safeTheme.layoutMode === 'list' && (
               <div className="flex flex-col gap-4">
                  {products.map((product) => (
@@ -98,7 +109,6 @@ export default async function StorefrontPage({ params }: { params: { store_slug:
               </div>
             )}
 
-            {/* Compact Grid Mode */}
             {safeTheme.layoutMode === 'compact' && (
               <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-6 gap-3">
                  {products.map((product) => (
