@@ -29,7 +29,7 @@ export default function AdminOfficialStorePage() {
         globalCategory: category,
         storeId: 'kabale-official', // Hardcoded to the Official Store
         images: [imageUrl],
-        // Removed the invalid 'inventory' property to satisfy TypeScript
+        stock: 100, // Fixed: Added the required 'stock' property
       });
 
       alert('Item added to Kabale Official Store successfully!');
