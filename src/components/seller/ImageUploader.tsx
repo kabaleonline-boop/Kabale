@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import { getCloudinarySignature } from '@/actions/cloudinary';
 
 interface ImageUploaderProps {
   onUploadSuccess: (url: string) => void;
@@ -20,20 +19,23 @@ export default function ImageUploader({ onUploadSuccess }: ImageUploaderProps) {
     setError(null);
 
     try {
-      // 1. Get the secure signature from our Next.js backend
-      const { timestamp, signature, folder, apiKey, cloudName } = await getCloudinarySignature();
+      // 1. Get the signature from the NEW API route instead of the deleted action
+      const signRes = await fetch('/api/cloudinary', { cache: 'no-store' });
+      const signData = await signRes.json();
+
+      if (!signRes.ok) throw new Error(signData.error || 'Failed to get signature');
 
       // 2. Prepare the payload for Cloudinary
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('api_key', apiKey as string);
-      formData.append('timestamp', timestamp.toString());
-      formData.append('signature', signature);
-      formData.append('folder', folder);
+      formData.append('api_key', signData.apiKey);
+      formData.append('timestamp', signData.timestamp);
+      formData.append('signature', signData.signature);
+      formData.append('folder', signData.folder);
 
-      // 3. Post directly to Cloudinary (Bypassing Vercel's bandwidth limits)
+      // 3. Post directly to Cloudinary
       const uploadResponse = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        `https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`,
         {
           method: 'POST',
           body: formData,
@@ -48,7 +50,7 @@ export default function ImageUploader({ onUploadSuccess }: ImageUploaderProps) {
 
       // Pass the secure URL back up to the parent form
       onUploadSuccess(data.secure_url);
-      
+
     } catch (err: any) {
       console.error('Upload error:', err);
       setError(err.message || 'Failed to upload image. Please try again.');
