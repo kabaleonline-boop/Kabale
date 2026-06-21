@@ -56,13 +56,13 @@ export async function createProduct(productData: any): Promise<string> {
       });
 
       const result = await response.json();
-      
+
       if (!response.ok) {
         console.error("API Route reported a failure:", result);
       } else {
         console.log("API Route successfully handled the Algolia sync!");
       }
-      
+
     } catch (apiError) {
       console.error('Failed to connect to the /api/products route:', apiError);
     }
@@ -79,7 +79,12 @@ export async function createProduct(productData: any): Promise<string> {
  */
 export async function getProductBySlug(storeSlug: string, productSlug: string): Promise<Product | null> {
   try {
-    const q = query(collection(db, 'products'), where('storeId', '==', storeSlug), where('slug', '==', productSlug), limit(1));
+    const q = query(
+      collection(db, 'products'), 
+      where('storeId', '==', storeSlug), 
+      where('slug', '==', productSlug), 
+      limit(1)
+    );
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) return querySnapshot.docs[0].data() as Product;
     return null;
@@ -93,7 +98,10 @@ export async function getProductBySlug(storeSlug: string, productSlug: string): 
  */
 export async function getProductsByStore(storeSlug: string): Promise<Product[]> {
   try {
-    const q = query(collection(db, 'products'), where('storeId', '==', storeSlug));
+    const q = query(
+      collection(db, 'products'), 
+      where('storeId', '==', storeSlug)
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data() as Product);
   } catch (error) {
@@ -108,12 +116,34 @@ export async function getGlobalProductsFeed(lastVisibleDoc: QueryDocumentSnapsho
   try {
     const productsRef = collection(db, 'products');
     let q = query(productsRef, orderBy('createdAt', 'desc'), limit(pageSize));
-    if (lastVisibleDoc) q = query(productsRef, orderBy('createdAt', 'desc'), startAfter(lastVisibleDoc), limit(pageSize));
+    
+    if (lastVisibleDoc) {
+      q = query(productsRef, orderBy('createdAt', 'desc'), startAfter(lastVisibleDoc), limit(pageSize));
+    }
+    
     const snapshot = await getDocs(q);
     const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
     const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
     return { products, lastDoc };
   } catch (error) {
     return { products: [], lastDoc: null };
+  }
+}
+
+/**
+ * Fetches all products that belong to a specific global category
+ */
+export async function getProductsByCategory(categoryName: string): Promise<Product[]> {
+  try {
+    const q = query(
+      collection(db, 'products'),
+      where('globalCategory', '==', categoryName)
+    );
+
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data() as Product);
+  } catch (error) {
+    console.error('Error fetching category products:', error);
+    return [];
   }
 }
