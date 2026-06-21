@@ -21,7 +21,7 @@ import { productsIndex } from '@/lib/algolia';
  * Adds a new product to a store, automatically generating its URL slug
  * and syncing the lightweight data to Algolia for instant search.
  */
-export async function createProduct(productData: Omit<Product, 'id' | 'slug' | 'createdAt'>): Promise<string> {
+export async function createProduct(productData: any): Promise<string> {
   try {
     const productCollectionRef = collection(db, 'products');
     const newProductDocRef = doc(productCollectionRef); // Autogenerate unique document ID
@@ -34,30 +34,35 @@ export async function createProduct(productData: Omit<Product, 'id' | 'slug' | '
       createdAt: new Date(),
     };
 
-    // 1. Save to Firebase (Source of Truth)
+    // 1. Save to Firebase (Source of Truth) - This is the priority!
     await setDoc(newProductDocRef, completeProduct);
 
     // 2. Sync lightweight search data to Algolia
-    // We only send what is needed for the search card to keep Algolia pricing low
-    await productsIndex.saveObject({
-      objectID: completeProduct.id, // Algolia requires an 'objectID' field
-      title: completeProduct.title,
-      price: completeProduct.price,
-      image: completeProduct.images[0] || null,
-      storeId: completeProduct.storeId,
-      slug: completeProduct.slug,
-      globalCategory: completeProduct.globalCategory,
-    });
+    // Wrapped in a separate try/catch so Algolia failure doesn't crash your Firebase save
+    try {
+      await productsIndex.saveObject({
+        objectID: completeProduct.id, 
+        title: completeProduct.title,
+        price: completeProduct.price,
+        image: completeProduct.images[0] || null,
+        storeId: completeProduct.storeId,
+        slug: completeProduct.slug,
+        globalCategory: completeProduct.globalCategory,
+      } as any);
+    } catch (algoliaError) {
+      console.error('Algolia sync failed, but Firebase save succeeded:', algoliaError);
+      // We do NOT throw here, so the user still sees "Added to Official Store!"
+    }
 
     return slug;
   } catch (error) {
-    console.error('Error creating product:', error);
+    console.error('Error creating product in Firebase:', error);
     throw error;
   }
 }
 
 /**
- * Fetches a single item using the store and product slugs for clean URL resolution
+ * Fetches a single item using the store and product slugs
  */
 export async function getProductBySlug(storeSlug: string, productSlug: string): Promise<Product | null> {
   try {
@@ -98,8 +103,7 @@ export async function getProductsByStore(storeSlug: string): Promise<Product[]> 
 }
 
 /**
- * Fetches a global feed of all products across all stores, ordered by newest.
- * Supports cursor-based pagination for infinite scrolling.
+ * Fetches a global feed of all products across all stores
  */
 export async function getGlobalProductsFeed(
   lastVisibleDoc: QueryDocumentSnapshot<DocumentData> | null = null,
@@ -107,15 +111,13 @@ export async function getGlobalProductsFeed(
 ) {
   try {
     const productsRef = collection(db, 'products');
-    
-    // Base query: newest first, limited to page size
+
     let q = query(
       productsRef,
       orderBy('createdAt', 'desc'),
       limit(pageSize)
     );
 
-    // If we have a cursor from a previous fetch, start after it
     if (lastVisibleDoc) {
       q = query(
         productsRef,
@@ -127,8 +129,6 @@ export async function getGlobalProductsFeed(
 
     const snapshot = await getDocs(q);
     const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
-    
-    // Save the last document to use as the starting point for the next batch
     const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
 
     return { products, lastDoc };
