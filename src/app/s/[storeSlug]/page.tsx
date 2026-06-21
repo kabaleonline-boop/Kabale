@@ -3,6 +3,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 import { getStoreConfig, incrementStoreViews } from '@/services/storeService';
 import { getProductsByStore } from '@/services/productService';
 import { StoreConfig, Product } from '@/types';
@@ -10,9 +12,9 @@ import ProductCard from '@/components/ProductCard';
 
 export default function StorefrontPage() {
   const params = useParams();
-  // 🚨 Read the slug from the new folder name
   const storeSlug = params.storeSlug as string;
 
+  const { profile } = useAuth();
   const [config, setConfig] = useState<StoreConfig | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,12 +66,36 @@ export default function StorefrontPage() {
     );
   }
 
+  // Determine if the current logged-in user is the owner of this store
+  const isOwner = profile && (
+    (profile as any).storeSlug === storeSlug || profile.uid === config.ownerId
+  );
+
   const waLink = config.whatsappNumber 
     ? `https://wa.me/${config.whatsappNumber.replace(/\D/g, '')}` 
     : '#';
 
   return (
     <div className="min-h-screen bg-white">
+      
+      {/* 🚨 STORE OWNER BANNER */}
+      {isOwner && (
+        <div className="bg-slate-900 text-white py-3 px-4 text-center border-b border-slate-800">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+            <span className="font-semibold text-sm">👋 Welcome to your public storefront.</span>
+            <Link 
+              href="/seller/dashboard" 
+              className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-full font-bold transition text-xs border border-white/10"
+            >
+              Go to Dashboard
+            </Link>
+            <span className="text-white/50 text-xs italic">
+              (This banner is only visible to you because you own this store)
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Store Header */}
       <div 
         className="py-16 md:py-20 px-4 transition-colors duration-500" 
