@@ -2,10 +2,20 @@
 import { NextResponse } from 'next/server';
 import algoliasearch from 'algoliasearch';
 
-// Initialize Algolia securely on the server
+// 🚨 BULLETPROOF KEY CATCHER: 
+// This will check all 3 possible names you might have used in Vercel
+const adminKey = 
+  process.env.ALGOLIA_ADMIN_API_KEY || 
+  process.env.ALGOLIA_ADMIN_KEY || 
+  process.env.NEXT_PUBLIC_ALGOLIA_ADMIN_KEY;
+
+if (!adminKey) {
+  console.error("CRITICAL: No Algolia Admin Key found in Vercel Environment Variables!");
+}
+
 const client = algoliasearch(
   process.env.NEXT_PUBLIC_ALGOLIA_APP_ID as string,
-  process.env.ALGOLIA_ADMIN_API_KEY as string
+  adminKey as string
 );
 
 const productsIndex = client.initIndex('products');
