@@ -6,19 +6,34 @@ import { useAuth } from '@/context/AuthContext';
 import { getStoreOrders, updateOrderStatus } from '@/services/orderService';
 import { Order } from '@/types';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function SellerOrdersPage() {
+  const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🚨 Securely grab the exact URL slug saved to their profile during onboarding
   const storeSlug = (profile as any)?.storeSlug;
+
+  // Protect route and redirect to onboarding if missing slug
+  useEffect(() => {
+    if (!authLoading && profile) {
+      if (profile.role !== 'seller' && profile.role !== 'admin') {
+        router.push('/');
+      } else if (profile.role === 'seller' && !storeSlug) {
+        router.push('/seller/onboarding');
+      }
+    }
+  }, [profile, authLoading, storeSlug, router]);
 
   useEffect(() => {
     async function fetchOrders() {
-      // Wait until the authentication and the store slug are fully loaded
-      if (!storeSlug) return; 
+      // 🚨 FIX: If no slug, stop loading so it doesn't spin forever!
+      if (!storeSlug) {
+        setLoading(false);
+        return; 
+      }
 
       try {
         const fetchedOrders = await getStoreOrders(storeSlug);
@@ -36,7 +51,6 @@ export default function SellerOrdersPage() {
   const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
     try {
       await updateOrderStatus(orderId, newStatus);
-      // Optimistic UI update
       setOrders(orders.map(order => 
         order.id === orderId ? { ...order, status: newStatus } : order
       ));
@@ -53,7 +67,6 @@ export default function SellerOrdersPage() {
     );
   }
 
-  // Helper to render the correct badge color based on status
   const getStatusBadge = (status: Order['status']) => {
     switch (status) {
       case 'Pending': return 'bg-amber-100 text-amber-800 border-amber-200';
