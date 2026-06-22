@@ -20,15 +20,18 @@ export default function SellerSettingsPage() {
   const [description, setDescription] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  
+
   const [theme, setTheme] = useState<StoreTheme>({
-    primaryColor: '#0f172a', // Default dark slate
-    accentColor: '#10b981',  // Default emerald
+    primaryColor: '#0f172a', 
+    accentColor: '#10b981',  
     layoutMode: 'bento-grid',
     fontFamily: 'Inter',
   });
 
-  const storeSlug = (profile as any)?.storeSlug;
+  // 🚨 FIX 1: If they are an admin, default them to the official store so it never gets confused
+  const storeSlug = profile?.role === 'admin' 
+    ? ((profile as any)?.storeSlug || 'kabale-official') 
+    : (profile as any)?.storeSlug;
 
   // Protect route and redirect to onboarding if missing slug
   useEffect(() => {
@@ -48,7 +51,7 @@ export default function SellerSettingsPage() {
         setLoading(false);
         return; 
       }
-      
+
       try {
         const config = await getStoreConfig(storeSlug);
         if (config) {
@@ -67,7 +70,7 @@ export default function SellerSettingsPage() {
     if (!authLoading) loadStore();
   }, [authLoading, storeSlug]);
 
-  // 🚨 Exact Logic from Add Product Page applied to Logo Upload
+  // 🚨 Exact Logic from Admin Upload applied to Logo Upload
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -86,7 +89,7 @@ export default function SellerSettingsPage() {
     try {
       const file = files[0]; // Only need the first file for a logo
       const timestamp = Math.floor(Date.now() / 1000);
-      const folder = 'kabale_stores'; // Keep store logos organized
+      const folder = 'kabale_stores'; 
       const paramsToSign = { folder, timestamp };
 
       // 1. Get secure signature from backend
@@ -132,24 +135,33 @@ export default function SellerSettingsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!storeSlug) {
-      alert('Authentication Error: Missing store URL slug. Please complete onboarding.');
+      alert('Authentication Error: Missing store URL slug.');
       return;
     }
 
     setSaving(true);
     try {
-      await saveStoreConfig(storeSlug, {
+      // 🚨 FIX 2: Create a perfectly clean payload so Firebase doesn't crash on 'undefined'
+      const payload: any = {
         storeName,
         whatsappNumber,
         description,
-        logoUrl: logoUrl || undefined,
         theme,
         ownerId: profile?.uid,
-        verified: false, 
-      });
+        verified: profile?.role === 'admin', // Admins are automatically verified
+      };
+
+      // Only attach logoUrl if it has a value
+      if (logoUrl) {
+        payload.logoUrl = logoUrl;
+      }
+
+      await saveStoreConfig(storeSlug, payload);
       alert('Storefront customization saved successfully!');
-    } catch (err) {
-      alert('Error updating configuration.');
+    } catch (err: any) {
+      console.error('Save error detailed:', err);
+      // 🚨 FIX 3: Actually show the exact Firebase error message if it fails
+      alert(`Error updating configuration:\n\n${err.message || 'Unknown Firebase Error'}`);
     } finally {
       setSaving(false);
     }
@@ -174,7 +186,7 @@ export default function SellerSettingsPage() {
 
         {/* Left Side: Control Panel Form */}
         <form onSubmit={handleSave} className="lg:col-span-5 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-8">
-          
+
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Store Settings</h1>
