@@ -80,16 +80,20 @@ export default function StorefrontPage() {
       
       {/* 🚨 STORE OWNER BANNER */}
       {isOwner && (
-        <div className="bg-slate-900 text-white py-3 px-4 text-center border-b border-slate-800">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
-            <span className="font-semibold text-sm">👋 Welcome to your public storefront.</span>
-            <Link 
-              href="/seller/dashboard" 
-              className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-full font-bold transition text-xs border border-white/10"
-            >
-              Go to Dashboard
-            </Link>
-            <span className="text-white/50 text-xs italic">
+        <div className="bg-slate-100 py-3 px-4 text-center border-b border-slate-200">
+          <div className="max-w-7xl mx-auto flex flex-col items-center justify-center gap-1.5">
+            {/* Top Line: Message + Button */}
+            <div className="flex flex-row items-center justify-center gap-3">
+              <span className="font-bold text-slate-800 text-sm">Welcome to your public storefront.</span>
+              <Link 
+                href="/seller/dashboard" 
+                className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-full font-bold transition text-xs shadow-sm"
+              >
+                Go to Dashboard
+              </Link>
+            </div>
+            {/* Bottom Line: Privacy Note */}
+            <span className="text-slate-500 text-xs font-medium">
               (This banner is only visible to you because you own this store)
             </span>
           </div>
