@@ -24,10 +24,10 @@ export default function AddProductPage() {
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // 🚨 Fallback seamlessly so anyone can use it without breaking the database
+  // Fallback seamlessly so anyone can use it without breaking the database
   const storeSlug = (profile as any)?.storeSlug || profile?.uid || 'default-store';
 
-  // Secure Cloudinary Upload Handler
+  // 🚨 Exact Logic from Admin Page for Cloudinary Upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -37,24 +37,43 @@ export default function AddProductPage() {
       return;
     }
 
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+
+    if (!cloudName || !apiKey) {
+      console.error('Environment Error: Cloudinary configuration is missing.');
+      alert('Upload service is temporarily unavailable. Please check your configuration.');
+      return;
+    }
+
     setUploadingImages(true);
     const newImageUrls: string[] = [];
 
     try {
       for (const file of files) {
-        const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
+        const timestamp = Math.floor(Date.now() / 1000);
+        const folder = 'kabale_products';
+        const paramsToSign = { folder, timestamp };
+
+        // 1. Get secure signature from backend
+        const signRes = await fetch('/api/cloudinary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paramsToSign }),
+        });
 
         if (!signRes.ok) throw new Error('Failed to securely sign the image upload request.');
-        const signData = await signRes.json();
+        const { signature } = await signRes.json();
 
+        // 2. Upload directly to Cloudinary
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('api_key', signData.apiKey);
-        formData.append('timestamp', signData.timestamp);
-        formData.append('signature', signData.signature);
-        formData.append('folder', signData.folder);
+        formData.append('api_key', apiKey);
+        formData.append('folder', folder);
+        formData.append('timestamp', String(timestamp)); 
+        formData.append('signature', signature);
 
-        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
           method: 'POST',
           body: formData,
         });
@@ -65,16 +84,14 @@ export default function AddProductPage() {
         if (finalUrl) {
           newImageUrls.push(finalUrl);
         } else {
-          console.error("Cloudinary rejected the image:", uploadData);
-          alert(`Image upload failed: ${uploadData.error?.message || 'Check console'}`);
+          console.error("Cloudinary rejection details:", uploadData);
+          alert(`Failed to process image: ${uploadData.error?.message || 'Unknown error'}`);
         }
       }
 
-      if (newImageUrls.length > 0) {
-        setImages((prev) => [...prev, ...newImageUrls]);
-      }
+      setImages((prev) => [...prev, ...newImageUrls]);
     } catch (error) {
-      console.error('Image upload crash:', error);
+      console.error('Image upload failed:', error);
       alert('A network error occurred while uploading your images. Please try again.');
     } finally {
       setUploadingImages(false);
