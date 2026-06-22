@@ -8,7 +8,6 @@ import { useAuth } from '@/context/AuthContext';
 import { getStoreConfig, incrementStoreViews } from '@/services/storeService';
 import { getProductsByStore } from '@/services/productService';
 import { StoreConfig, Product } from '@/types';
-import ProductCard from '@/components/ProductCard';
 
 export default function StorefrontPage() {
   const params = useParams();
@@ -19,7 +18,6 @@ export default function StorefrontPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. Fetch Store Data using the Slug
   useEffect(() => {
     async function loadStoreData() {
       try {
@@ -38,7 +36,6 @@ export default function StorefrontPage() {
     if (storeSlug) loadStoreData();
   }, [storeSlug]);
 
-  // 2. Record the View
   useEffect(() => {
     if (!storeSlug) return;
     const viewKey = `viewed_store_${storeSlug}`;
@@ -66,7 +63,6 @@ export default function StorefrontPage() {
     );
   }
 
-  // Determine if the current logged-in user is the owner of this store
   const isOwner = profile && (
     (profile as any).storeSlug === storeSlug || profile.uid === config.ownerId
   );
@@ -75,21 +71,11 @@ export default function StorefrontPage() {
     ? `https://wa.me/${config.whatsappNumber.replace(/\D/g, '')}` 
     : '#';
 
-  // Calculate the Dynamic Gradient from the Settings
   const gradientStyle = {
     background: `linear-gradient(135deg, ${config.theme?.primaryColor || '#0f172a'}, ${config.theme?.accentColor || '#10b981'})`
   };
 
-  // Calculate the Layout Grid based on Settings
-  let gridClasses = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-x-6 md:gap-y-10"; // Default Bento Mode
-  
-  if (config.theme?.layoutMode === 'list') {
-    // List mode: wider cards, stacked
-    gridClasses = "grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6"; 
-  } else if (config.theme?.layoutMode === 'compact') {
-    // Compact mode: tiny cards, tight gaps
-    gridClasses = "grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4";
-  }
+  const layoutMode = config.theme?.layoutMode || 'bento-grid';
 
   return (
     <div className="min-h-screen bg-white">
@@ -114,13 +100,9 @@ export default function StorefrontPage() {
         </div>
       )}
 
-      {/* Store Header: Uses the Gradient and the uploaded Logo */}
-      <div 
-        className="py-16 md:py-20 px-4 transition-all duration-500 relative overflow-hidden" 
-        style={gradientStyle}
-      >
+      {/* Store Header */}
+      <div className="py-16 md:py-20 px-4 transition-all duration-500 relative overflow-hidden" style={gradientStyle}>
         <div className="max-w-7xl mx-auto text-center relative z-10">
-          {/* Logo or Default Icon */}
           <div className="w-24 h-24 mx-auto bg-white rounded-3xl shadow-xl flex items-center justify-center text-4xl mb-6 overflow-hidden border-4 border-white/20">
             {config.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -154,7 +136,7 @@ export default function StorefrontPage() {
         </div>
       </div>
 
-      {/* Store Products */}
+      {/* Store Products Section */}
       <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">All Products</h2>
@@ -168,19 +150,96 @@ export default function StorefrontPage() {
             <p className="text-slate-500">This store is currently setting up their inventory.</p>
           </div>
         ) : (
-          <div className={gridClasses}>
-            {/* Applies the dynamic layout classes calculated above! */}
-            {products.map((product) => (
-              <ProductCard 
-                key={product.id}
-                id={product.id}
-                storeId={product.storeId}
-                slug={product.slug}
-                title={product.title}
-                price={product.price}
-                image={product.images && product.images[0] ? product.images[0] : ''}
-              />
-            ))}
+          <div className="w-full">
+            
+            {/* 1. BENTO GRID MODE */}
+            {layoutMode === 'bento-grid' && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {products.map((product, index) => {
+                  const isFeatured = index === 0; // The very first item gets the large featured slot
+                  return (
+                    <Link
+                      href={`/p/${product.slug}`}
+                      key={product.id}
+                      className={`bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg transition-all overflow-hidden flex flex-col group ${isFeatured ? 'col-span-2 row-span-2' : ''}`}
+                    >
+                      <div className={`${isFeatured ? 'aspect-[4/3] md:aspect-square' : 'aspect-square'} bg-slate-50 overflow-hidden relative`}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={product.images[0] || ''} alt={product.title} className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-500" />
+                        {isFeatured && (
+                          <span className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm px-4 py-1.5 text-xs font-black rounded-full text-slate-900 shadow-sm uppercase tracking-wider">
+                            ⭐ Featured
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+                        <h3 className={`font-bold text-slate-900 ${isFeatured ? 'text-lg sm:text-xl line-clamp-2' : 'text-sm line-clamp-2'}`}>
+                          {product.title}
+                        </h3>
+                        <p className={`${isFeatured ? 'text-xl sm:text-2xl mt-4' : 'text-sm mt-2'} font-black`} style={{ color: config.theme?.accentColor || '#10b981' }}>
+                          UGX {product.price.toLocaleString()}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 2. LIST MODE */}
+            {layoutMode === 'list' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {products.map((product) => (
+                  <Link
+                    href={`/p/${product.slug}`}
+                    key={product.id}
+                    className="flex gap-4 p-3 bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group items-center"
+                  >
+                    <div className="w-28 h-28 sm:w-32 sm:h-32 bg-slate-50 rounded-2xl overflow-hidden shrink-0 relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={product.images[0] || ''} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    <div className="flex-1 py-2 pr-4">
+                      <h3 className="font-bold text-slate-900 text-sm sm:text-base line-clamp-2 mb-2 leading-snug">
+                        {product.title}
+                      </h3>
+                      <div className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-slate-50 border border-slate-100">
+                        <p className="font-black text-sm" style={{ color: config.theme?.accentColor || '#10b981' }}>
+                          UGX {product.price.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* 3. COMPACT MODE */}
+            {layoutMode === 'compact' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                {products.map((product) => (
+                  <Link
+                    href={`/p/${product.slug}`}
+                    key={product.id}
+                    className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col group"
+                  >
+                    <div className="aspect-square bg-slate-50 overflow-hidden relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={product.images[0] || ''} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    <div className="p-3 text-center bg-slate-50/50">
+                      <h3 className="text-xs font-bold text-slate-700 truncate mb-1">
+                        {product.title}
+                      </h3>
+                      <p className="text-sm font-black" style={{ color: config.theme?.accentColor || '#10b981' }}>
+                        UGX {product.price.toLocaleString()}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+
           </div>
         )}
       </div>
