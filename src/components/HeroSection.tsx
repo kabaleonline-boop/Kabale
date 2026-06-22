@@ -9,11 +9,11 @@ export default function HeroSection() {
         <div className="text-center lg:text-left">
           
           <h1 className="text-5xl sm:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
-            The Kabale Town <br />
-            <span className="text-emerald-600">in Your Pocket.</span>
+            Kabale Town <br />
+            <span className="text-emerald-600">in your pocket.</span>
           </h1>
           <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto lg:mx-0">
-            Shop top electronics, hardware, and fashion from trusted local stores. Pay securely with cash or mobile money when the rider arrives at your door.
+            Shop from trusted local shops and get what you need delivered to you. Pay safely with cash on delivery.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-6">
