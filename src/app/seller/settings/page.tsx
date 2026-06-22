@@ -243,7 +243,8 @@ export default function SellerSettingsPage() {
           {/* Theme Controls */}
           <div className="space-y-5">
             <h3 className="text-sm font-bold text-slate-800">Branding & Gradient Colors</h3>
-            <p className="text-xs text-slate-500">Pick two colors to create your store's custom header gradient.</p>
+            {/* 🚨 FIX: Escaped the apostrophe in "store's" to "store&apos;s" */}
+            <p className="text-xs text-slate-500">Pick two colors to create your store&apos;s custom header gradient.</p>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
