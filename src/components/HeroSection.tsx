@@ -6,16 +6,22 @@ export default function HeroSection() {
     <section className="relative bg-slate-50 overflow-hidden border-b border-slate-200">
       <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-20"></div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        
+        {/* Parent wrapper keeps default centering for mobile, left for desktop */}
         <div className="text-center lg:text-left">
-          
-          <h1 className="text-5xl sm:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
+
+          {/* 🚨 Explicity forced left alignment for the heading */}
+          <h1 className="text-left text-5xl sm:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
             Kabale Town <br />
             <span className="text-emerald-600">in your pocket.</span>
           </h1>
-          <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto lg:mx-0">
+          
+          {/* 🚨 Explicitly forced left alignment for the paragraph and removed mobile centering */}
+          <p className="text-left text-lg text-slate-600 mb-8 max-w-xl lg:mx-0">
             Shop from trusted local shops and get what you need delivered to you. Pay safely with cash on delivery.
           </p>
-          
+
+          {/* Buttons remain centered on mobile, left on desktop */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-6">
             <Link href="/products" className="bg-slate-900 text-white font-bold py-4 px-8 rounded-full hover:bg-slate-800 transition shadow-lg shadow-slate-200 text-center">
               Start Shopping
@@ -25,6 +31,7 @@ export default function HeroSection() {
             </Link>
           </div>
 
+          {/* Bottom text remains centered on mobile, left on desktop */}
           <div className="text-center lg:text-left mt-2">
             <span className="inline-block text-emerald-600 underline font-semibold text-sm decoration-2 underline-offset-4">
               Now serving the Kigezi Region
