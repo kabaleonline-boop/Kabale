@@ -67,28 +67,47 @@ export default function SellerSettingsPage() {
     if (!authLoading) loadStore();
   }, [authLoading, storeSlug]);
 
-  // Handle Cloudinary Image Upload for Store Logo
+  // 🚨 Exact Logic from Add Product Page applied to Logo Upload
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+
+    if (!cloudName || !apiKey) {
+      console.error('Environment Error: Cloudinary configuration is missing.');
+      alert('Upload service is temporarily unavailable. Please check your configuration.');
+      return;
+    }
+
     setUploadingLogo(true);
 
     try {
-      const file = files[0];
-      const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
+      const file = files[0]; // Only need the first file for a logo
+      const timestamp = Math.floor(Date.now() / 1000);
+      const folder = 'kabale_stores'; // Keep store logos organized
+      const paramsToSign = { folder, timestamp };
+
+      // 1. Get secure signature from backend
+      const signRes = await fetch('/api/cloudinary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paramsToSign }),
+      });
 
       if (!signRes.ok) throw new Error('Failed to securely sign the image upload request.');
-      const signData = await signRes.json();
+      const { signature } = await signRes.json();
 
+      // 2. Upload directly to Cloudinary
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('api_key', signData.apiKey);
-      formData.append('timestamp', signData.timestamp);
-      formData.append('signature', signData.signature);
-      formData.append('folder', signData.folder);
+      formData.append('api_key', apiKey);
+      formData.append('folder', folder);
+      formData.append('timestamp', String(timestamp)); 
+      formData.append('signature', signature);
 
-      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -99,8 +118,8 @@ export default function SellerSettingsPage() {
       if (finalUrl) {
         setLogoUrl(finalUrl);
       } else {
-        console.error("Cloudinary rejected the image:", uploadData);
-        alert(`Image upload failed: ${uploadData.error?.message || 'Check console'}`);
+        console.error("Cloudinary rejection details:", uploadData);
+        alert(`Failed to process image: ${uploadData.error?.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Image upload crash:', error);
@@ -243,7 +262,6 @@ export default function SellerSettingsPage() {
           {/* Theme Controls */}
           <div className="space-y-5">
             <h3 className="text-sm font-bold text-slate-800">Branding & Gradient Colors</h3>
-            {/* 🚨 FIX: Escaped the apostrophe in "store's" to "store&apos;s" */}
             <p className="text-xs text-slate-500">Pick two colors to create your store&apos;s custom header gradient.</p>
 
             <div className="grid grid-cols-2 gap-4">
