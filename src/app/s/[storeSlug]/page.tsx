@@ -75,12 +75,12 @@ export default function StorefrontPage() {
     ? `https://wa.me/${config.whatsappNumber.replace(/\D/g, '')}` 
     : '#';
 
-  // 🚨 1. Calculate the Dynamic Gradient from the Settings
+  // Calculate the Dynamic Gradient from the Settings
   const gradientStyle = {
     background: `linear-gradient(135deg, ${config.theme?.primaryColor || '#0f172a'}, ${config.theme?.accentColor || '#10b981'})`
   };
 
-  // 🚨 2. Calculate the Layout Grid based on Settings
+  // Calculate the Layout Grid based on Settings
   let gridClasses = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-x-6 md:gap-y-10"; // Default Bento Mode
   
   if (config.theme?.layoutMode === 'list') {
@@ -114,7 +114,7 @@ export default function StorefrontPage() {
         </div>
       )}
 
-      {/* 🚨 Store Header: Now uses the Gradient and the uploaded Logo */}
+      {/* Store Header: Uses the Gradient and the uploaded Logo */}
       <div 
         className="py-16 md:py-20 px-4 transition-all duration-500 relative overflow-hidden" 
         style={gradientStyle}
@@ -168,8 +168,8 @@ export default function StorefrontPage() {
             <p className="text-slate-500">This store is currently setting up their inventory.</p>
           </div>
         ) : (
-          {/* 🚨 Applies the dynamic layout classes calculated above! */}
           <div className={gridClasses}>
+            {/* Applies the dynamic layout classes calculated above! */}
             {products.map((product) => (
               <ProductCard 
                 key={product.id}
