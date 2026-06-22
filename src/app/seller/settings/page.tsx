@@ -14,12 +14,16 @@ export default function SellerSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Form State
   const [storeName, setStoreName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [description, setDescription] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  
   const [theme, setTheme] = useState<StoreTheme>({
-    primaryColor: '#059669',
-    accentColor: '#dc2626',
+    primaryColor: '#0f172a', // Default dark slate
+    accentColor: '#10b981',  // Default emerald
     layoutMode: 'bento-grid',
     fontFamily: 'Inter',
   });
@@ -37,9 +41,9 @@ export default function SellerSettingsPage() {
     }
   }, [profile, authLoading, storeSlug, router]);
 
+  // Load existing data
   useEffect(() => {
     async function loadStore() {
-      // 🚨 FIX: If no slug, stop loading so it doesn't spin forever!
       if (!storeSlug) {
         setLoading(false);
         return; 
@@ -51,6 +55,7 @@ export default function SellerSettingsPage() {
           setStoreName(config.storeName);
           setWhatsappNumber(config.whatsappNumber || '');
           setDescription(config.description || '');
+          setLogoUrl(config.logoUrl || null);
           if (config.theme) setTheme(config.theme);
         }
       } catch (err) {
@@ -61,6 +66,49 @@ export default function SellerSettingsPage() {
     }
     if (!authLoading) loadStore();
   }, [authLoading, storeSlug]);
+
+  // Handle Cloudinary Image Upload for Store Logo
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setUploadingLogo(true);
+
+    try {
+      const file = files[0];
+      const signRes = await fetch('/api/cloudinary', { cache: 'no-store' }); 
+
+      if (!signRes.ok) throw new Error('Failed to securely sign the image upload request.');
+      const signData = await signRes.json();
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('api_key', signData.apiKey);
+      formData.append('timestamp', signData.timestamp);
+      formData.append('signature', signData.signature);
+      formData.append('folder', signData.folder);
+
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const uploadData = await uploadRes.json();
+      const finalUrl = uploadData.secure_url || uploadData.url;
+
+      if (finalUrl) {
+        setLogoUrl(finalUrl);
+      } else {
+        console.error("Cloudinary rejected the image:", uploadData);
+        alert(`Image upload failed: ${uploadData.error?.message || 'Check console'}`);
+      }
+    } catch (error) {
+      console.error('Image upload crash:', error);
+      alert('A network error occurred while uploading your image. Please try again.');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +123,7 @@ export default function SellerSettingsPage() {
         storeName,
         whatsappNumber,
         description,
+        logoUrl: logoUrl || undefined,
         theme,
         ownerId: profile?.uid,
         verified: false, 
@@ -95,6 +144,11 @@ export default function SellerSettingsPage() {
     );
   }
 
+  // Dynamic gradient style for live preview
+  const gradientStyle = {
+    background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-8">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -110,6 +164,43 @@ export default function SellerSettingsPage() {
             <Link href="/seller/dashboard" className="text-xs font-bold text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-wider bg-slate-100 px-3 py-1.5 rounded-full">
               &larr; Dashboard
             </Link>
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* Image Uploader for Logo */}
+          <div>
+            <label className="block text-sm font-bold text-slate-900 mb-4">Store Logo / Profile Image</label>
+            <div className="flex items-center gap-6">
+              <div className="relative w-24 h-24 rounded-full border-4 border-slate-100 overflow-hidden shadow-sm flex-shrink-0 bg-slate-50">
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt="Store Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-300 text-3xl">🏪</div>
+                )}
+              </div>
+
+              <div className="flex-1">
+                <label className="inline-flex items-center justify-center px-4 py-2 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-200 transition cursor-pointer">
+                  {uploadingLogo ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                      Uploading...
+                    </span>
+                  ) : (
+                    'Upload Image'
+                  )}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                </label>
+                <p className="text-xs text-slate-400 mt-2">Recommended: Square image, max 2MB.</p>
+                {logoUrl && (
+                  <button type="button" onClick={() => setLogoUrl(null)} className="text-xs text-red-500 font-bold mt-2 hover:underline">
+                    Remove Image
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           <hr className="border-slate-100" />
@@ -133,6 +224,7 @@ export default function SellerSettingsPage() {
                 value={whatsappNumber} 
                 onChange={(e) => setWhatsappNumber(e.target.value)}
                 className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900"
+                placeholder="e.g. 0770000000"
               />
             </div>
             <div>
@@ -150,32 +242,33 @@ export default function SellerSettingsPage() {
 
           {/* Theme Controls */}
           <div className="space-y-5">
-            <h3 className="text-sm font-bold text-slate-800">Branding Styles</h3>
+            <h3 className="text-sm font-bold text-slate-800">Branding & Gradient Colors</h3>
+            <p className="text-xs text-slate-500">Pick two colors to create your store's custom header gradient.</p>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Primary Color</label>
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Base Color</label>
                 <div className="flex items-center gap-3">
                   <input 
                     type="color" 
                     value={theme.primaryColor} 
                     onChange={(e) => setTheme({...theme, primaryColor: e.target.value})}
-                    className="w-10 h-10 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white"
+                    className="w-10 h-10 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white shadow-sm"
                   />
-                  <span className="text-xs font-mono font-semibold text-slate-700">{theme.primaryColor}</span>
+                  <span className="text-xs font-mono font-semibold text-slate-700 uppercase">{theme.primaryColor}</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Accent Color</label>
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Highlight Color</label>
                 <div className="flex items-center gap-3">
                   <input 
                     type="color" 
                     value={theme.accentColor} 
                     onChange={(e) => setTheme({...theme, accentColor: e.target.value})}
-                    className="w-10 h-10 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white"
+                    className="w-10 h-10 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white shadow-sm"
                   />
-                  <span className="text-xs font-mono font-semibold text-slate-700">{theme.accentColor}</span>
+                  <span className="text-xs font-mono font-semibold text-slate-700 uppercase">{theme.accentColor}</span>
                 </div>
               </div>
             </div>
@@ -196,7 +289,7 @@ export default function SellerSettingsPage() {
 
           <button 
             type="submit" 
-            disabled={saving}
+            disabled={saving || uploadingLogo}
             className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all duration-200 shadow-lg shadow-slate-900/20 active:scale-[0.99] flex items-center justify-center gap-2"
           >
             {saving ? (
@@ -215,22 +308,36 @@ export default function SellerSettingsPage() {
           <div className="border border-slate-200 shadow-2xl rounded-[3rem] p-4 bg-slate-900 max-w-sm mx-auto aspect-[9/19] overflow-hidden relative">
             <div className="bg-slate-50 w-full h-full rounded-[2.5rem] overflow-y-auto flex flex-col font-sans text-xs pb-10">
 
-              <div className="p-5 flex items-center justify-between text-white transition-colors duration-300 rounded-t-[2.5rem]" style={{ backgroundColor: theme.primaryColor }}>
-                <span className="font-bold tracking-tight text-base truncate pr-2">{storeName || 'My Store'}</span>
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">🛒</div>
+              {/* Dynamic Gradient Header */}
+              <div 
+                className="pt-10 pb-6 px-5 text-white transition-all duration-300 rounded-t-[2.5rem] relative" 
+                style={gradientStyle}
+              >
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-3">
+                    {logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-full border-2 border-white/30 object-cover bg-white" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold">🏪</div>
+                    )}
+                    <span className="font-bold tracking-tight text-base truncate max-w-[120px]">{storeName || 'My Store'}</span>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 shadow-sm backdrop-blur-sm">🛒</div>
+                </div>
               </div>
 
-              <div className="p-4 flex-1 space-y-4">
-                <div className="bg-white p-4 rounded-2xl shadow-sm space-y-2 text-center">
+              <div className="p-4 flex-1 space-y-4 -mt-4 relative z-20">
+                <div className="bg-white p-4 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.05)] space-y-2 text-center">
                   <div className="h-2 w-12 bg-slate-200 rounded mx-auto mb-3"></div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed">{description || 'Store description will appear here...'}</p>
+                  <p className="text-[10px] text-slate-500 leading-relaxed font-medium">{description || 'Store description will appear here...'}</p>
                 </div>
 
                 {theme.layoutMode === 'bento-grid' && (
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-2 h-28 bg-white rounded-2xl p-3 flex flex-col justify-between shadow-sm">
                       <span className="font-bold text-xs" style={{ color: theme.primaryColor }}>Featured</span>
-                      <div className="h-6 w-6 rounded-full" style={{ backgroundColor: theme.accentColor }}></div>
+                      <div className="h-6 w-6 rounded-full" style={{ background: gradientStyle.background }}></div>
                     </div>
                     <div className="h-28 bg-white rounded-2xl p-2 shadow-sm">
                       <div className="w-full h-10 bg-slate-50 rounded-xl"></div>
