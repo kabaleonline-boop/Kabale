@@ -1,57 +1,58 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+// src/app/s/[storeSlug]/page.tsx
+import { Metadata } from 'next';
 import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
-import { getStoreConfig, incrementStoreViews } from '@/services/storeService';
+import { getStoreConfig } from '@/services/storeService';
 import { getProductsByStore } from '@/services/productService';
-import { StoreConfig, Product } from '@/types';
 import FloatingCart from '@/components/storefront/FloatingCart';
+import StoreOwnerBanner from '@/components/storefront/StoreOwnerBanner';
+import StoreViewTracker from '@/components/storefront/StoreViewTracker';
 
-export default function StorefrontPage() {
-  const params = useParams();
-  const storeSlug = params.storeSlug as string;
+// 🚨 1. DYNAMIC STORE SEO GENERATOR
+export async function generateMetadata({ params }: { params: { storeSlug: string } }): Promise<Metadata> {
+  const storeConfig = await getStoreConfig(params.storeSlug);
 
-  const { profile } = useAuth();
-  const [config, setConfig] = useState<StoreConfig | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadStoreData() {
-      try {
-        const storeConfig = await getStoreConfig(storeSlug);
-        setConfig(storeConfig || null);
-
-        const storeProducts = await getProductsByStore(storeSlug);
-        setProducts(storeProducts);
-      } catch (error) {
-        console.error("Error loading store:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (storeSlug) loadStoreData();
-  }, [storeSlug]);
-
-  useEffect(() => {
-    if (!storeSlug) return;
-    const viewKey = `viewed_store_${storeSlug}`;
-    if (!sessionStorage.getItem(viewKey)) {
-      incrementStoreViews(storeSlug);
-      sessionStorage.setItem(viewKey, 'true');
-    }
-  }, [storeSlug]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+  if (!storeConfig) {
+    return { title: 'Store Not Found' };
   }
+
+  const storeDescription = storeConfig.description || `Welcome to ${storeConfig.storeName} on Kabale Online. Shop our latest products today!`;
+
+  return {
+    title: storeConfig.storeName, 
+    description: storeDescription,
+    openGraph: {
+      title: `${storeConfig.storeName} | Kabale Online`,
+      description: storeDescription,
+      url: `https://kabaleonline.com/s/${params.storeSlug}`,
+      siteName: 'Kabale Online',
+      images: [
+        {
+          url: storeConfig.logoUrl || '/og-banner.jpg', 
+          width: 800,
+          height: 800,
+          alt: `${storeConfig.storeName} Logo`,
+        },
+      ],
+      type: 'profile',
+    },
+    twitter: {
+      card: 'summary',
+      title: storeConfig.storeName,
+      description: storeDescription,
+      images: [storeConfig.logoUrl || '/og-banner.jpg'],
+    },
+  };
+}
+
+// 🚨 2. SERVER COMPONENT (Loads instantly, perfect SEO)
+export default async function StorefrontPage({ params }: { params: { storeSlug: string } }) {
+  const storeSlug = params.storeSlug;
+
+  // Fetch data simultaneously on the server
+  const [config, products] = await Promise.all([
+    getStoreConfig(storeSlug),
+    getProductsByStore(storeSlug)
+  ]);
 
   if (!config) {
     return (
@@ -62,10 +63,6 @@ export default function StorefrontPage() {
       </div>
     );
   }
-
-  const isOwner = profile && (
-    (profile as any).storeSlug === storeSlug || profile.uid === config.ownerId
-  );
 
   // Smart WhatsApp Number Stabilization (Auto-adds 256)
   let waLink = '#';
@@ -85,6 +82,9 @@ export default function StorefrontPage() {
   return (
     <div className="min-h-screen bg-slate-50 relative">
       
+      {/* Invisible View Tracker */}
+      <StoreViewTracker storeSlug={storeSlug} />
+
       {/* Floating Cart Component */}
       <FloatingCart storeSlug={storeSlug} />
 
@@ -131,20 +131,7 @@ export default function StorefrontPage() {
       </div>
 
       {/* 3. Stacked Store Owner Banner */}
-      {isOwner && (
-        <div className="bg-slate-100 py-4 px-4 border-b border-slate-200 flex flex-col items-center justify-center gap-2 text-center">
-          <span className="font-bold text-slate-800 text-sm">Welcome to your public storefront.</span>
-          <Link 
-            href="/seller/dashboard" 
-            className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-full font-bold transition text-xs shadow-sm"
-          >
-            Go to Dashboard
-          </Link>
-          <span className="text-slate-500 text-xs font-medium mt-1">
-            (This banner is only visible to you because you own this store)
-          </span>
-        </div>
-      )}
+      <StoreOwnerBanner storeSlug={storeSlug} ownerId={config.ownerId!} />
 
       {/* Store Products Section */}
       <div className="max-w-5xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
