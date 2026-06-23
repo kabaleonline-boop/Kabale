@@ -8,7 +8,8 @@ import { StoreConfig } from '@/types';
 
 export default function CheckoutPage() {
   const params = useParams();
-  const storeSlug = params.storeSlug as string;
+  // Match the param name to your folder structure (store_slug)
+  const storeSlug = (params.store_slug || params.storeSlug) as string;
 
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [store, setStore] = useState<StoreConfig | null>(null);
@@ -21,6 +22,7 @@ export default function CheckoutPage() {
 
     // 2. Fetch the store details for the WhatsApp number
     async function fetchStore() {
+      if (!storeSlug) return;
       const storeData = await getStoreConfig(storeSlug);
       setStore(storeData || null);
       setLoading(false);
@@ -83,7 +85,8 @@ export default function CheckoutPage() {
           <div className="bg-white p-12 rounded-[2rem] text-center shadow-sm border border-slate-100">
             <span className="text-6xl block mb-4">🛒</span>
             <h2 className="text-xl font-bold text-slate-900 mb-2">Your cart is empty</h2>
-            <p className="text-slate-500 mb-6">Looks like you haven't added anything from {store?.storeName || 'this store'} yet.</p>
+            {/* 🚨 FIXED: Replaced haven't with haven&apos;t */}
+            <p className="text-slate-500 mb-6">Looks like you haven&apos;t added anything from {store?.storeName || 'this store'} yet.</p>
             <Link href={`/s/${storeSlug}`} className="inline-block bg-slate-900 text-white font-bold px-8 py-3 rounded-full hover:bg-slate-800 transition">
               Return to Store
             </Link>
