@@ -1,3 +1,4 @@
+// src/app/s/[storeSlug]/p/[productSlug]/page.tsx
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -12,7 +13,7 @@ interface PageProps {
   params: { storeSlug: string; productSlug: string };
 }
 
-// DYNAMIC METADATA GENERATOR (The WhatsApp Magic)
+// 🚨 UPGRADED DYNAMIC METADATA GENERATOR (Product SEO + Canonical Links)
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const product = await getProductBySlug(params.storeSlug, params.productSlug);
   const store = await getStoreConfig(params.storeSlug);
@@ -23,14 +24,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const priceFormatted = `UGX ${product.price.toLocaleString()}`;
   const ogTitle = `${priceFormatted} - ${product.title}`;
+  const productUrl = `https://kabaleonline.com/s/${params.storeSlug}/p/${params.productSlug}`;
 
   return {
     title: `${product.title} | ${store.storeName}`,
     description: product.description,
+    category: product.storeCategory, // Helps Google categorize the product
+    alternates: {
+      canonical: productUrl, // Prevents duplicate content penalties 
+    },
     openGraph: {
       title: ogTitle,
       description: `Available at ${store.storeName}. ${product.description.substring(0, 100)}...`,
-      url: `https://kabaleonline.com/s/${params.storeSlug}/p/${params.productSlug}`,
+      url: productUrl,
       siteName: 'Kabale Online',
       images: [
         {
@@ -83,7 +89,7 @@ export default async function ProductDetailsPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-slate-50 font-sans relative">
 
-      {/* 🚨 Floating Cart integrated into the Product Detail Page too */}
+      {/* Floating Cart integrated into the Product Detail Page */}
       <FloatingCart storeSlug={params.storeSlug} />
 
       {/* Micro-Header */}
@@ -113,7 +119,7 @@ export default async function ProductDetailsPage({ params }: PageProps) {
       <main className="max-w-5xl mx-auto md:px-6 md:py-10">
         <div className="bg-white md:rounded-[2.5rem] md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:border border-slate-100 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8 lg:gap-12 md:p-4">
 
-          {/* New Lightbox Image Gallery */}
+          {/* Lightbox Image Gallery */}
           <ProductGallery images={product.images} alt={product.title} />
 
           {/* Product Info */}
