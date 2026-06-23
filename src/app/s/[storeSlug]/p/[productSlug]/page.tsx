@@ -1,17 +1,18 @@
-// src/app/s/[storeSlug]/p/[productSlug]/page.tsx
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { getProductBySlug } from '@/services/productService';
 import { getStoreConfig } from '@/services/storeService';
-import AddToCartButton from '@/components/storefront/AddToCartButton';
+import ProductGallery from '@/components/storefront/ProductGallery';
+import ProductActionCenter from '@/components/storefront/ProductActionCenter';
+import MoreFromShop from '@/components/storefront/MoreFromShop';
+import FloatingCart from '@/components/storefront/FloatingCart';
 
 interface PageProps {
   params: { storeSlug: string; productSlug: string };
 }
 
-// 1. DYNAMIC METADATA GENERATOR (The WhatsApp Magic)
+// DYNAMIC METADATA GENERATOR (The WhatsApp Magic)
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const product = await getProductBySlug(params.storeSlug, params.productSlug);
   const store = await getStoreConfig(params.storeSlug);
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: 'Kabale Online',
       images: [
         {
-          url: product.images[0] || '/placeholder.png', // WhatsApp will pull this exact image
+          url: product.images[0] || '/placeholder.png', 
           width: 800,
           height: 800,
           alt: product.title,
@@ -50,9 +51,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// 2. THE PAGE UI (Server Component for maximum speed and SEO)
+// THE PAGE UI (Server Component)
 export default async function ProductDetailsPage({ params }: PageProps) {
-  // Fetch data concurrently for maximum loading speed
   const [product, store] = await Promise.all([
     getProductBySlug(params.storeSlug, params.productSlug),
     getStoreConfig(params.storeSlug)
@@ -62,12 +62,31 @@ export default async function ProductDetailsPage({ params }: PageProps) {
     notFound();
   }
 
-  const { theme, storeName } = store;
+  const { theme, storeName, whatsappNumber } = store;
+
+  // Description Logic: Split by breaks. If > 1 line, convert to bullets.
+  const descriptionLines = product.description.split('\n').filter(line => line.trim() !== '');
+  const hasBreaks = descriptionLines.length > 1;
+
+  // Generate WhatsApp Link payload
+  let waLink = '#';
+  if (whatsappNumber) {
+    let cleanNum = whatsappNumber.replace(/\D/g, ''); 
+    if (cleanNum.startsWith('0')) cleanNum = '256' + cleanNum.substring(1);
+    else if (!cleanNum.startsWith('256')) cleanNum = '256' + cleanNum;
+    
+    // Auto-fill message with product details
+    const textParams = encodeURIComponent(`Hi ${storeName}, I'm asking about this item:\n\n*${product.title}*\nPrice: UGX ${product.price.toLocaleString()}\n\nLink: https://kabaleonline.com/s/${params.storeSlug}/p/${params.productSlug}`);
+    waLink = `https://wa.me/${cleanNum}?text=${textParams}`;
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 font-sans">
+    <div className="min-h-screen bg-slate-50 font-sans relative">
 
-      {/* Micro-Header for easy navigation back to the store */}
+      {/* 🚨 Floating Cart integrated into the Product Detail Page too */}
+      <FloatingCart storeSlug={params.storeSlug} />
+
+      {/* Micro-Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link 
@@ -94,61 +113,55 @@ export default async function ProductDetailsPage({ params }: PageProps) {
       <main className="max-w-5xl mx-auto md:px-6 md:py-10">
         <div className="bg-white md:rounded-[2.5rem] md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:border border-slate-100 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-8 lg:gap-12 md:p-4">
 
-          {/* Image Gallery */}
-          <div className="relative aspect-square w-full bg-slate-50 md:rounded-[2rem] overflow-hidden border-b md:border-none border-slate-100">
-            <Image 
-              src={product.images[0] || '/placeholder.png'} 
-              alt={product.title} 
-              fill 
-              className="object-cover hover:scale-105 transition-transform duration-700"
-              priority
-            />
-          </div>
+          {/* New Lightbox Image Gallery */}
+          <ProductGallery images={product.images} alt={product.title} />
 
           {/* Product Info */}
           <div className="p-6 md:p-8 flex flex-col justify-center">
-            
+
             <div className="mb-4">
               <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
                 {product.storeCategory}
               </span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 mb-4 leading-[1.1] tracking-tight">
+            {/* Title is Base Color and Massive */}
+            <h1 
+              className="text-5xl sm:text-6xl lg:text-[4.5rem] font-black mb-6 leading-[1.05] tracking-tight"
+              style={{ color: theme?.primaryColor || '#0f172a' }}
+            >
               {product.title}
             </h1>
 
-            {/* Dynamic Store Color Applied to Price */}
-            <div className="text-3xl sm:text-4xl font-black mb-8 tracking-tight" style={{ color: theme?.primaryColor || '#059669' }}>
+            {/* Price is Highlight Color */}
+            <div 
+              className="text-3xl sm:text-4xl font-black mb-8 tracking-tight" 
+              style={{ color: theme?.accentColor || '#10b981' }}
+            >
               UGX {product.price.toLocaleString()}
             </div>
 
-            <div className="prose prose-sm sm:prose-base text-slate-500 mb-10 flex-1 leading-relaxed">
-              <p className="whitespace-pre-wrap">{product.description}</p>
+            {/* Smart Description (Bullets if linebreaks exist) */}
+            <div className="prose prose-sm sm:prose-base text-slate-600 mb-10 flex-1 leading-relaxed">
+              {hasBreaks ? (
+                <ul className="list-disc pl-5 space-y-2 font-medium">
+                  {descriptionLines.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="whitespace-pre-wrap font-medium">{product.description}</p>
+              )}
             </div>
 
-            {/* Action Area */}
-            <div className="mt-auto space-y-4 pt-8 border-t border-slate-100">
-              
-              {/* AddToCartButton should handle the specific cart logic */}
-              <AddToCartButton 
-                product={product} 
-                storeSlug={params.storeSlug} 
-                accentColor={theme?.accentColor || '#dc2626'} 
-              />
+            {/* Integrated Quantity + Add to Cart + WhatsApp Button */}
+            <ProductActionCenter 
+              product={product}
+              storeSlug={params.storeSlug}
+              accentColor={theme?.accentColor || '#10b981'}
+              waLink={waLink}
+            />
 
-              <Link 
-                href={`/checkout/${params.storeSlug}`}
-                className="flex w-full items-center justify-center bg-slate-900 text-white font-bold py-5 px-6 rounded-2xl shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-all active:scale-[0.99]"
-              >
-                Go to Secure Checkout
-                <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </Link>
-
-            </div>
-            
             {/* Trust Badges */}
             <div className="mt-6 flex items-center justify-center gap-6 text-slate-400">
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
@@ -165,6 +178,13 @@ export default async function ProductDetailsPage({ params }: PageProps) {
 
         </div>
       </main>
+
+      {/* More from this shop */}
+      <MoreFromShop 
+        storeSlug={params.storeSlug} 
+        currentProductId={product.id!} 
+        accentColor={theme?.accentColor || '#10b981'}
+      />
     </div>
   );
 }
