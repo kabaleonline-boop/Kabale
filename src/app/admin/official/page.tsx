@@ -17,11 +17,14 @@ export default function AdminOfficialStorePage() {
   const [category, setCategory] = useState('Phones & Tablets');
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  
+  // 🚨 AI Generation State
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    
+
     if (images.length + files.length > 5) {
       alert('You can only upload a maximum of 5 images per product.');
       return;
@@ -78,7 +81,7 @@ export default function AdminOfficialStorePage() {
           alert(`Failed to process image: ${uploadData.error?.message || 'Unknown error'}`);
         }
       }
-      
+
       setImages((prev) => [...prev, ...newImageUrls]);
     } catch (error) {
       console.error('Image upload failed:', error);
@@ -92,19 +95,50 @@ export default function AdminOfficialStorePage() {
     setImages(images.filter((_, index) => index !== indexToRemove));
   };
 
+  // 🚨 The AI Description Generator Function
+  const generateAIDescription = async () => {
+    if (!title) {
+      alert("Please enter a Product Title first so the AI knows what to write about!");
+      return;
+    }
+
+    setIsGeneratingAI(true);
+    try {
+      const response = await fetch('/api/ai/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, category })
+      });
+
+      if (!response.ok) throw new Error('AI generation failed');
+      
+      const data = await response.json();
+      if (data.description) {
+        setDescription(data.description);
+      } else {
+        throw new Error('No description returned');
+      }
+    } catch (error) {
+      console.error(error);
+      alert("The AI is currently busy or unavailable. Please try again or write the description manually.");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (images.length === 0) {
       alert('Please upload at least one product image.');
       return;
     }
-    
+
     setLoading(true);
 
     try {
       const ownerId = (profile as any)?.id || (profile as any)?.uid;
-      
+
       if (!ownerId) {
         alert("Authentication Error: We could not verify your admin session.");
         setLoading(false);
@@ -137,7 +171,7 @@ export default function AdminOfficialStorePage() {
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        
+
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             <span className="text-4xl">⭐</span> Official Store Manager
@@ -147,7 +181,7 @@ export default function AdminOfficialStorePage() {
 
         <div className="bg-white p-6 md:p-10 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <form onSubmit={handleUpload} className="space-y-8">
-            
+
             {/* Image Upload Section */}
             <div>
               <label className="block text-sm font-bold text-slate-900 mb-4">Product Imagery (Max 5)</label>
@@ -165,7 +199,7 @@ export default function AdminOfficialStorePage() {
                     </button>
                   </div>
                 ))}
-                
+
                 {images.length < 5 && (
                   <label className="w-28 h-28 md:w-32 md:h-32 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/50 transition-all cursor-pointer text-slate-500 hover:text-emerald-600 group">
                     {uploadingImages ? (
@@ -191,7 +225,7 @@ export default function AdminOfficialStorePage() {
 
             {/* Form Fields Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-bold text-slate-900 mb-2">Product Title</label>
                 <input 
@@ -234,15 +268,37 @@ export default function AdminOfficialStorePage() {
                 </select>
               </div>
 
+              {/* 🚨 Integrated AI Button */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-slate-900 mb-2">Product Description</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold text-slate-900">Product Description</label>
+                  <button
+                    type="button"
+                    onClick={generateAIDescription}
+                    disabled={isGeneratingAI || !title}
+                    className={`text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                      !title 
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:scale-105 active:scale-95'
+                    }`}
+                  >
+                    {isGeneratingAI ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div> 
+                        Writing...
+                      </>
+                    ) : (
+                      <>✨ Auto-Write with AI</>
+                    )}
+                  </button>
+                </div>
                 <textarea 
                   required 
-                  rows={5} 
+                  rows={6} 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
                   className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all resize-none font-medium text-slate-900 placeholder:text-slate-400" 
-                  placeholder="Provide detailed specifications, warranty information, and features..." 
+                  placeholder="Provide detailed specifications, warranty information, and features... or click 'Auto-Write with AI'!" 
                 />
               </div>
             </div>
@@ -250,7 +306,7 @@ export default function AdminOfficialStorePage() {
             <div className="pt-6">
               <button 
                 type="submit" 
-                disabled={loading || uploadingImages} 
+                disabled={loading || uploadingImages || isGeneratingAI} 
                 className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl hover:bg-slate-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-slate-900/20 active:scale-[0.99]"
               >
                 {loading ? (
