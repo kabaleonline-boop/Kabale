@@ -1,10 +1,10 @@
-// src/app/sell/page.tsx
 'use client';
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+// 🚨 Change import: Swap updateDoc for setDoc
+import { doc, setDoc } from 'firebase/firestore'; 
 import { useRouter } from 'next/navigation';
 
 export default function SellLandingPage() {
@@ -12,19 +12,20 @@ export default function SellLandingPage() {
   const [upgrading, setUpgrading] = useState(false);
   const router = useRouter();
 
-  // Safe check to see if they actually completed store setup
   const hasStore = (profile as any)?.storeSlug;
 
-  // The engine that converts a regular user into a seller
   const handleCreateStore = async () => {
     if (!profile) return;
     
     setUpgrading(true);
     try {
-      const userRef = doc(db, 'users', profile.uid);
-      await updateDoc(userRef, { role: 'seller' });
+      // 🚨 Fallback check: sometimes profile objects use .id instead of .uid depending on how you structured your AuthContext
+      const safeUid = profile.uid || (profile as any).id;
+      const userRef = doc(db, 'users', safeUid);
       
-      // Force reload to guarantee AuthContext refreshes the role to 'seller' immediately
+      // 🚨 Use setDoc with merge: true instead of updateDoc
+      await setDoc(userRef, { role: 'seller' }, { merge: true });
+      
       window.location.href = '/seller/onboarding';
 
     } catch (error) {
@@ -36,7 +37,6 @@ export default function SellLandingPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      
       {/* Hero Pitch */}
       <section className="bg-slate-950 text-white py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -60,7 +60,6 @@ export default function SellLandingPage() {
               Sign In to Open a Store
             </button>
           ) : profile.role === 'seller' && hasStore ? (
-            // User is a fully setup seller
             <button 
               onClick={() => router.push('/seller/dashboard')}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 px-10 rounded-full text-lg transition shadow-xl shadow-emerald-900/50"
@@ -68,7 +67,6 @@ export default function SellLandingPage() {
               Go to My Dashboard
             </button>
           ) : profile.role === 'admin' ? (
-             // User is an Admin
             <button 
               onClick={() => router.push('/admin')}
               className="bg-purple-600 hover:bg-purple-500 text-white font-black py-4 px-10 rounded-full text-lg transition shadow-xl shadow-purple-900/50"
@@ -76,7 +74,6 @@ export default function SellLandingPage() {
               Admin Command Center
             </button>
           ) : profile.role === 'seller' && !hasStore ? (
-            // User is a seller but hasn't picked a URL yet
             <button 
               onClick={() => router.push('/seller/onboarding')}
               className="bg-amber-500 hover:bg-amber-400 text-white font-black py-4 px-10 rounded-full text-lg transition shadow-xl shadow-amber-900/50"
@@ -84,7 +81,6 @@ export default function SellLandingPage() {
               Finish Setting Up Store
             </button>
           ) : (
-            // User is a standard buyer
             <button 
               onClick={handleCreateStore}
               disabled={upgrading}
@@ -134,7 +130,6 @@ export default function SellLandingPage() {
           </div>
         </div>
       </section>
-
     </div>
   );
 }
