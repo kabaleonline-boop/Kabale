@@ -1,4 +1,3 @@
-// src/app/seller/products/new/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -23,11 +22,13 @@ export default function AddProductPage() {
   // Image Upload State
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  
+  // AI Generation State
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   // Fallback seamlessly so anyone can use it without breaking the database
   const storeSlug = (profile as any)?.storeSlug || profile?.uid || 'default-store';
 
-  // 🚨 Exact Logic from Admin Page for Cloudinary Upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -55,7 +56,6 @@ export default function AddProductPage() {
         const folder = 'kabale_products';
         const paramsToSign = { folder, timestamp };
 
-        // 1. Get secure signature from backend
         const signRes = await fetch('/api/cloudinary', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -65,7 +65,6 @@ export default function AddProductPage() {
         if (!signRes.ok) throw new Error('Failed to securely sign the image upload request.');
         const { signature } = await signRes.json();
 
-        // 2. Upload directly to Cloudinary
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', apiKey);
@@ -102,6 +101,37 @@ export default function AddProductPage() {
     setImages(images.filter((_, index) => index !== indexToRemove));
   };
 
+  // The AI Description Generator Function
+  const generateAIDescription = async () => {
+    if (!title) {
+      alert("Please enter a Product Title first so the AI knows what to write about!");
+      return;
+    }
+
+    setIsGeneratingAI(true);
+    try {
+      const response = await fetch('/api/ai/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, category })
+      });
+
+      if (!response.ok) throw new Error('AI generation failed');
+      
+      const data = await response.json();
+      if (data.description) {
+        setDescription(data.description);
+      } else {
+        throw new Error('No description returned');
+      }
+    } catch (error) {
+      console.error(error);
+      alert("The AI is currently busy or unavailable. Please try again or write the description manually.");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -113,13 +143,23 @@ export default function AddProductPage() {
     setLoading(true);
 
     try {
+      // 🚨 FIX: Extract the ownerId from the profile
+      const ownerId = profile?.uid || (profile as any)?.id;
+
+      if (!ownerId) {
+        alert("Authentication Error: We could not verify your session.");
+        setLoading(false);
+        return;
+      }
+
       await createProduct({
         title,
         price: Number(price),
         description,
         storeCategory: category,
         globalCategory: category,
-        storeId: storeSlug, // 🚨 Saving under their custom URL slug or fallback
+        storeId: storeSlug, 
+        ownerId: ownerId, // 🚨 FIX: Added the ownerId so Firestore allows the write!
         images: images, 
         stock: Number(stock), 
       });
@@ -254,14 +294,35 @@ export default function AddProductPage() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-slate-900 mb-2">Product Description</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold text-slate-900">Product Description</label>
+                  <button
+                    type="button"
+                    onClick={generateAIDescription}
+                    disabled={isGeneratingAI || !title}
+                    className={`text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                      !title 
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:scale-105 active:scale-95'
+                    }`}
+                  >
+                    {isGeneratingAI ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div> 
+                        Writing...
+                      </>
+                    ) : (
+                      <>✨ Auto-Write</>
+                    )}
+                  </button>
+                </div>
                 <textarea 
                   required 
                   rows={5} 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
                   className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all resize-none font-medium text-slate-900 placeholder:text-slate-400" 
-                  placeholder="Detail the specifications, features, and warranty information..." 
+                  placeholder="Detail the specifications, features, and warranty information... or use AI!" 
                 />
               </div>
             </div>
@@ -275,7 +336,7 @@ export default function AddProductPage() {
               </Link>
               <button 
                 type="submit" 
-                disabled={loading || uploadingImages} 
+                disabled={loading || uploadingImages || isGeneratingAI} 
                 className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl hover:bg-slate-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-slate-900/20 active:scale-[0.99]"
               >
                 {loading ? (
