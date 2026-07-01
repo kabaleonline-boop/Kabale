@@ -1,79 +1,42 @@
-// src/app/seller/settings/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { getStoreConfig, saveStoreConfig } from '@/services/storeService';
-import { StoreConfig, StoreTheme } from '@/types';
-import Link from 'next/link';
+import { useState } from 'react';
+import { createProduct } from '@/services/productService';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 
-export default function SellerSettingsPage() {
+export default function AddProductPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  const [loading, setLoading] = useState(false);
 
   // Form State
-  const [storeName, setStoreName] = useState('');
-  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [title, setTitle] = useState('');
+  const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [category, setCategory] = useState('Phones & Tablets'); 
+  const [stock, setStock] = useState('10');
 
-  const [theme, setTheme] = useState<StoreTheme>({
-    primaryColor: '#0f172a', 
-    accentColor: '#10b981',  
-    layoutMode: 'bento-grid',
-    fontFamily: 'Inter',
-  });
+  // Image Upload State
+  const [images, setImages] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  
+  // AI Generation State
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
-  // 🚨 FIX 1: If they are an admin, default them to the official store so it never gets confused
-  const storeSlug = profile?.role === 'admin' 
-    ? ((profile as any)?.storeSlug || 'kabale-official') 
-    : (profile as any)?.storeSlug;
+  // Fallback seamlessly so anyone can use it without breaking the database
+  const storeSlug = (profile as any)?.storeSlug || profile?.uid || 'default-store';
 
-  // Protect route and redirect to onboarding if missing slug
-  useEffect(() => {
-    if (!authLoading && profile) {
-      if (profile.role !== 'seller' && profile.role !== 'admin') {
-        router.push('/');
-      } else if (profile.role === 'seller' && !storeSlug) {
-        router.push('/seller/onboarding');
-      }
-    }
-  }, [profile, authLoading, storeSlug, router]);
-
-  // Load existing data
-  useEffect(() => {
-    async function loadStore() {
-      if (!storeSlug) {
-        setLoading(false);
-        return; 
-      }
-
-      try {
-        const config = await getStoreConfig(storeSlug);
-        if (config) {
-          setStoreName(config.storeName);
-          setWhatsappNumber(config.whatsappNumber || '');
-          setDescription(config.description || '');
-          setLogoUrl(config.logoUrl || null);
-          if (config.theme) setTheme(config.theme);
-        }
-      } catch (err) {
-        console.error('Failed to load store configuration', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    if (!authLoading) loadStore();
-  }, [authLoading, storeSlug]);
-
-  // 🚨 Exact Logic from Admin Upload applied to Logo Upload
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
+
+    if (images.length + files.length > 5) {
+      alert('You can only upload a maximum of 5 images per product.');
+      return;
+    }
 
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
@@ -84,332 +47,308 @@ export default function SellerSettingsPage() {
       return;
     }
 
-    setUploadingLogo(true);
+    setUploadingImages(true);
+    const newImageUrls: string[] = [];
 
     try {
-      const file = files[0]; // Only need the first file for a logo
-      const timestamp = Math.floor(Date.now() / 1000);
-      const folder = 'kabale_stores'; 
-      const paramsToSign = { folder, timestamp };
+      for (const file of files) {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const folder = 'kabale_products';
+        const paramsToSign = { folder, timestamp };
 
-      // 1. Get secure signature from backend
-      const signRes = await fetch('/api/cloudinary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paramsToSign }),
-      });
+        const signRes = await fetch('/api/cloudinary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paramsToSign }),
+        });
 
-      if (!signRes.ok) throw new Error('Failed to securely sign the image upload request.');
-      const { signature } = await signRes.json();
+        if (!signRes.ok) throw new Error('Failed to securely sign the image upload request.');
+        const { signature } = await signRes.json();
 
-      // 2. Upload directly to Cloudinary
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('api_key', apiKey);
-      formData.append('folder', folder);
-      formData.append('timestamp', String(timestamp)); 
-      formData.append('signature', signature);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('api_key', apiKey);
+        formData.append('folder', folder);
+        formData.append('timestamp', String(timestamp)); 
+        formData.append('signature', signature);
 
-      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData,
-      });
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: 'POST',
+          body: formData,
+        });
 
-      const uploadData = await uploadRes.json();
-      const finalUrl = uploadData.secure_url || uploadData.url;
+        const uploadData = await uploadRes.json();
+        const finalUrl = uploadData.secure_url || uploadData.url;
 
-      if (finalUrl) {
-        setLogoUrl(finalUrl);
-      } else {
-        console.error("Cloudinary rejection details:", uploadData);
-        alert(`Failed to process image: ${uploadData.error?.message || 'Unknown error'}`);
+        if (finalUrl) {
+          newImageUrls.push(finalUrl);
+        } else {
+          console.error("Cloudinary rejection details:", uploadData);
+          alert(`Failed to process image: ${uploadData.error?.message || 'Unknown error'}`);
+        }
       }
+
+      setImages((prev) => [...prev, ...newImageUrls]);
     } catch (error) {
-      console.error('Image upload crash:', error);
-      alert('A network error occurred while uploading your image. Please try again.');
+      console.error('Image upload failed:', error);
+      alert('A network error occurred while uploading your images. Please try again.');
     } finally {
-      setUploadingLogo(false);
+      setUploadingImages(false);
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!storeSlug) {
-      alert('Authentication Error: Missing store URL slug.');
+  const removeImage = (indexToRemove: number) => {
+    setImages(images.filter((_, index) => index !== indexToRemove));
+  };
+
+  // The AI Description Generator Function
+  const generateAIDescription = async () => {
+    if (!title) {
+      alert("Please enter a Product Title first so the AI knows what to write about!");
       return;
     }
 
-    setSaving(true);
+    setIsGeneratingAI(true);
     try {
-      // 🚨 FIX 2: Create a perfectly clean payload so Firebase doesn't crash on 'undefined'
-      const payload: any = {
-        storeName,
-        whatsappNumber,
-        description,
-        theme,
-        ownerId: profile?.uid,
-        verified: profile?.role === 'admin', // Admins are automatically verified
-      };
+      const response = await fetch('/api/ai/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, category })
+      });
 
-      // Only attach logoUrl if it has a value
-      if (logoUrl) {
-        payload.logoUrl = logoUrl;
+      if (!response.ok) throw new Error('AI generation failed');
+      
+      const data = await response.json();
+      if (data.description) {
+        setDescription(data.description);
+      } else {
+        throw new Error('No description returned');
       }
-
-      await saveStoreConfig(storeSlug, payload);
-      alert('Storefront customization saved successfully!');
-    } catch (err: any) {
-      console.error('Save error detailed:', err);
-      // 🚨 FIX 3: Actually show the exact Firebase error message if it fails
-      alert(`Error updating configuration:\n\n${err.message || 'Unknown Firebase Error'}`);
+    } catch (error) {
+      console.error(error);
+      alert("The AI is currently busy or unavailable. Please try again or write the description manually.");
     } finally {
-      setSaving(false);
+      setIsGeneratingAI(false);
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  // Dynamic gradient style for live preview
-  const gradientStyle = {
-    background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+    if (images.length === 0) {
+      alert('Please upload at least one product image.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 🚨 FIX: Extract the ownerId from the profile
+      const ownerId = profile?.uid || (profile as any)?.id;
+
+      if (!ownerId) {
+        alert("Authentication Error: We could not verify your session.");
+        setLoading(false);
+        return;
+      }
+
+      await createProduct({
+        title,
+        price: Number(price),
+        description,
+        storeCategory: category,
+        globalCategory: category,
+        storeId: storeSlug, 
+        ownerId: ownerId, // 🚨 FIX: Added the ownerId so Firestore allows the write!
+        images: images, 
+        stock: Number(stock), 
+      });
+
+      alert('Product published successfully!');
+      router.push('/seller/dashboard'); 
+    } catch (error: any) {
+      console.error("Publishing Error:", error);
+      alert(error?.message || 'Failed to publish the product to your storefront.');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  if (authLoading) return null;
+
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-8">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto">
 
-        {/* Left Side: Control Panel Form */}
-        <form onSubmit={handleSave} className="lg:col-span-5 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-8">
-
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Store Settings</h1>
-              <p className="text-sm text-slate-500 mt-1">Tailor your public storefront matching your brand.</p>
-            </div>
-            <Link href="/seller/dashboard" className="text-xs font-bold text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-wider bg-slate-100 px-3 py-1.5 rounded-full">
-              &larr; Dashboard
-            </Link>
-          </div>
-
-          <hr className="border-slate-100" />
-
-          {/* Image Uploader for Logo */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <label className="block text-sm font-bold text-slate-900 mb-4">Store Logo / Profile Image</label>
-            <div className="flex items-center gap-6">
-              <div className="relative w-24 h-24 rounded-full border-4 border-slate-100 overflow-hidden shadow-sm flex-shrink-0 bg-slate-50">
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="Store Logo" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-300 text-3xl">🏪</div>
-                )}
-              </div>
-
-              <div className="flex-1">
-                <label className="inline-flex items-center justify-center px-4 py-2 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-200 transition cursor-pointer">
-                  {uploadingLogo ? (
-                    <span className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                      Uploading...
-                    </span>
-                  ) : (
-                    'Upload Image'
-                  )}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
-                </label>
-                <p className="text-xs text-slate-400 mt-2">Recommended: Square image, max 2MB.</p>
-                {logoUrl && (
-                  <button type="button" onClick={() => setLogoUrl(null)} className="text-xs text-red-500 font-bold mt-2 hover:underline">
-                    Remove Image
-                  </button>
-                )}
-              </div>
-            </div>
+            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <span className="text-4xl">📦</span> Add Product
+            </h1>
+            <p className="text-slate-500 mt-2 text-lg">Upload inventory directly to your digital storefront.</p>
           </div>
+          <Link href="/seller/dashboard" className="hidden sm:inline-flex text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-wider bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200">
+            &larr; Dashboard
+          </Link>
+        </div>
 
-          <hr className="border-slate-100" />
+        <div className="bg-white p-6 md:p-10 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <form onSubmit={handleUpload} className="space-y-8">
 
-          {/* Core Info */}
-          <div className="space-y-5">
+            {/* Image Uploader */}
             <div>
-              <label className="block text-sm font-bold text-slate-900 mb-2">Display Name</label>
-              <input 
-                type="text" 
-                value={storeName} 
-                onChange={(e) => setStoreName(e.target.value)}
-                required
-                className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-900 mb-2">WhatsApp Number</label>
-              <input 
-                type="text" 
-                value={whatsappNumber} 
-                onChange={(e) => setWhatsappNumber(e.target.value)}
-                className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900"
-                placeholder="e.g. 0770000000"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-900 mb-2">Store Description</label>
-              <textarea 
-                rows={3}
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900 resize-none"
-              />
-            </div>
-          </div>
+              <label className="block text-sm font-bold text-slate-900 mb-4">Product Imagery (Max 5)</label>
+              <div className="flex flex-wrap gap-4">
+                {images.map((url, idx) => (
+                  <div key={idx} className="relative w-28 h-28 md:w-32 md:h-32 rounded-2xl border border-slate-200 overflow-hidden shadow-sm group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                    <button 
+                      type="button" 
+                      onClick={() => removeImage(idx)}
+                      className="absolute inset-0 bg-black/60 text-white text-sm font-semibold opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-200 backdrop-blur-sm"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
 
-          <hr className="border-slate-100" />
-
-          {/* Theme Controls */}
-          <div className="space-y-5">
-            <h3 className="text-sm font-bold text-slate-800">Branding & Gradient Colors</h3>
-            <p className="text-xs text-slate-500">Pick two colors to create your store&apos;s custom header gradient.</p>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Base Color</label>
-                <div className="flex items-center gap-3">
-                  <input 
-                    type="color" 
-                    value={theme.primaryColor} 
-                    onChange={(e) => setTheme({...theme, primaryColor: e.target.value})}
-                    className="w-10 h-10 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white shadow-sm"
-                  />
-                  <span className="text-xs font-mono font-semibold text-slate-700 uppercase">{theme.primaryColor}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Highlight Color</label>
-                <div className="flex items-center gap-3">
-                  <input 
-                    type="color" 
-                    value={theme.accentColor} 
-                    onChange={(e) => setTheme({...theme, accentColor: e.target.value})}
-                    className="w-10 h-10 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white shadow-sm"
-                  />
-                  <span className="text-xs font-mono font-semibold text-slate-700 uppercase">{theme.accentColor}</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-slate-900 mb-2 mt-4">Desktop Layout Architecture</label>
-              <select 
-                value={theme.layoutMode} 
-                onChange={(e) => setTheme({...theme, layoutMode: e.target.value as any})}
-                className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900"
-              >
-                <option value="bento-grid">Modern Bento Structural Matrix</option>
-                <option value="list">Dense Linear Item Catalog</option>
-                <option value="compact">Minimalist High-Volume Grid</option>
-              </select>
-            </div>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={saving || uploadingLogo}
-            className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all duration-200 shadow-lg shadow-slate-900/20 active:scale-[0.99] flex items-center justify-center gap-2"
-          >
-            {saving ? (
-                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : 'Save & Publish Live'}
-          </button>
-        </form>
-
-        {/* Right Side: Virtual Phone Preview */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Live Sandbox Preview</h3>
-            <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full">Mobile View</span>
-          </div>
-
-          <div className="border border-slate-200 shadow-2xl rounded-[3rem] p-4 bg-slate-900 max-w-sm mx-auto aspect-[9/19] overflow-hidden relative">
-            <div className="bg-slate-50 w-full h-full rounded-[2.5rem] overflow-y-auto flex flex-col font-sans text-xs pb-10">
-
-              {/* Dynamic Gradient Header */}
-              <div 
-                className="pt-10 pb-6 px-5 text-white transition-all duration-300 rounded-t-[2.5rem] relative" 
-                style={gradientStyle}
-              >
-                <div className="flex items-center justify-between relative z-10">
-                  <div className="flex items-center gap-3">
-                    {logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-full border-2 border-white/30 object-cover bg-white" />
+                {images.length < 5 && (
+                  <label className="w-28 h-28 md:w-32 md:h-32 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/50 transition-all cursor-pointer text-slate-500 hover:text-emerald-600 group">
+                    {uploadingImages ? (
+                      <div className="w-7 h-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold">🏪</div>
+                      <>
+                        <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                          <svg className="w-5 h-5 text-slate-400 group-hover:text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                          </svg>
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-wider">Upload</span>
+                      </>
                     )}
-                    <span className="font-bold tracking-tight text-base truncate max-w-[120px]">{storeName || 'My Store'}</span>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 shadow-sm backdrop-blur-sm">🛒</div>
-                </div>
+                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImages} />
+                  </label>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-3 font-medium">Use high-quality, square images. The first image will be your storefront cover.</p>
+            </div>
+
+            <hr className="border-slate-100" />
+
+            {/* Form Fields Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-slate-900 mb-2">Product Title</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={title} 
+                  onChange={(e) => setTitle(e.target.value)} 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900 placeholder:text-slate-400" 
+                  placeholder="e.g., iPhone 15 Pro Max - 256GB" 
+                />
               </div>
 
-              <div className="p-4 flex-1 space-y-4 -mt-4 relative z-20">
-                <div className="bg-white p-4 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.05)] space-y-2 text-center">
-                  <div className="h-2 w-12 bg-slate-200 rounded mx-auto mb-3"></div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed font-medium">{description || 'Store description will appear here...'}</p>
+              <div>
+                <label className="block text-sm font-bold text-slate-900 mb-2">Price (UGX)</label>
+                <input 
+                  type="number" 
+                  required 
+                  value={price} 
+                  onChange={(e) => setPrice(e.target.value)} 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900 placeholder:text-slate-400" 
+                  placeholder="3500000" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-900 mb-2">Stock Quantity</label>
+                <input 
+                  type="number" 
+                  required 
+                  value={stock} 
+                  onChange={(e) => setStock(e.target.value)} 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900 placeholder:text-slate-400" 
+                  min="1" 
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-slate-900 mb-2">Category</label>
+                <select 
+                  value={category} 
+                  onChange={(e) => setCategory(e.target.value)} 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium text-slate-900 appearance-none"
+                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundPosition: `right 1.25rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.2em 1.2em` }}
+                >
+                  <option value="Phones & Tablets">📱 Phones & Tablets</option>
+                  <option value="Computing">💻 Computing</option>
+                  <option value="Home Appliances">📺 Home Appliances</option>
+                  <option value="Hardware & Tools">🔨 Hardware & Tools</option>
+                  <option value="Fashion">👕 Fashion</option>
+                  <option value="Home & Daily Items">🧼 Home & Daily Items</option>
+                  <option value="Food & Vegetables">🥬 Food & Vegetables</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold text-slate-900">Product Description</label>
+                  <button
+                    type="button"
+                    onClick={generateAIDescription}
+                    disabled={isGeneratingAI || !title}
+                    className={`text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                      !title 
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:scale-105 active:scale-95'
+                    }`}
+                  >
+                    {isGeneratingAI ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div> 
+                        Writing...
+                      </>
+                    ) : (
+                      <>✨ Auto-Write</>
+                    )}
+                  </button>
                 </div>
-
-                {theme.layoutMode === 'bento-grid' && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2 h-28 bg-white rounded-2xl p-3 flex flex-col justify-between shadow-sm">
-                      <span className="font-bold text-xs" style={{ color: theme.primaryColor }}>Featured</span>
-                      <div className="h-6 w-6 rounded-full" style={{ background: gradientStyle.background }}></div>
-                    </div>
-                    <div className="h-28 bg-white rounded-2xl p-2 shadow-sm">
-                      <div className="w-full h-10 bg-slate-50 rounded-xl"></div>
-                    </div>
-                    <div className="h-20 bg-white rounded-2xl p-3 col-span-3 shadow-sm">
-                      <div className="h-2 w-1/2 bg-slate-100 rounded"></div>
-                    </div>
-                  </div>
-                )}
-                
-                {theme.layoutMode === 'list' && (
-                   <div className="space-y-2">
-                     {[1, 2, 3].map((i) => (
-                       <div key={i} className="bg-white p-3 rounded-2xl flex gap-3 items-center shadow-sm">
-                         <div className="w-12 h-12 bg-slate-50 rounded-xl shrink-0"></div>
-                         <div className="flex-1 space-y-2">
-                           <div className="h-2.5 w-2/3 bg-slate-200 rounded"></div>
-                           <div className="h-2 w-1/3 bg-slate-100 rounded"></div>
-                         </div>
-                         <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: theme.accentColor }}></div>
-                       </div>
-                     ))}
-                   </div>
-                 )}
-
-                 {theme.layoutMode === 'compact' && (
-                   <div className="grid grid-cols-2 gap-2">
-                     {[1, 2, 4].map((i) => (
-                       <div key={i} className="bg-white p-3 rounded-2xl space-y-3 text-center shadow-sm">
-                         <div className="w-full aspect-square bg-slate-50 rounded-xl"></div>
-                         <div className="h-2 w-2/3 bg-slate-200 rounded mx-auto"></div>
-                         <div className="h-3 w-1/2 rounded mx-auto" style={{ backgroundColor: theme.primaryColor }}></div>
-                       </div>
-                     ))}
-                   </div>
-                 )}
+                <textarea 
+                  required 
+                  rows={5} 
+                  value={description} 
+                  onChange={(e) => setDescription(e.target.value)} 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all resize-none font-medium text-slate-900 placeholder:text-slate-400" 
+                  placeholder="Detail the specifications, features, and warranty information... or use AI!" 
+                />
               </div>
             </div>
-            {/* iPhone style home indicator */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-1/3 h-1 bg-white/20 rounded-full"></div>
-          </div>
+
+            <div className="pt-6 flex flex-col sm:flex-row gap-4">
+              <Link 
+                href="/seller/dashboard" 
+                className="w-full sm:w-auto text-center bg-slate-100 text-slate-900 font-bold py-5 px-8 rounded-2xl hover:bg-slate-200 transition-all duration-200"
+              >
+                Cancel
+              </Link>
+              <button 
+                type="submit" 
+                disabled={loading || uploadingImages || isGeneratingAI} 
+                className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl hover:bg-slate-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-slate-900/20 active:scale-[0.99]"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Publishing...
+                  </>
+                ) : 'Publish Product to Store'}
+              </button>
+            </div>
+
+          </form>
         </div>
       </div>
     </div>
