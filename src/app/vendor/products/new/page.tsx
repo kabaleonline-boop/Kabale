@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { 
   UploadCloud, X, Loader2, ArrowLeft, CheckCircle, Plus, 
