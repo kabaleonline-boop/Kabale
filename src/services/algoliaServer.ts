@@ -1,7 +1,7 @@
 // src/services/algoliaServer.ts
 'use server';
 
-import algoliasearch from 'algoliasearch';
+import { algoliasearch } from 'algoliasearch';
 
 // This initializes Algolia safely on the Vercel backend using your Admin Key
 const client = algoliasearch(
