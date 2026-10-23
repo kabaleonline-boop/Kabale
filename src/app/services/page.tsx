@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client';
+import { db } from '@/lib/firebase';
 import { 
   Wrench, Phone, MessageSquare, Clock, MapPin, 
   ShieldCheck, Loader2, Search, Filter 
