@@ -17,10 +17,10 @@ import { Product } from '@/types';
 import { generateSlug } from '@/lib/utils';
 
 /**
- * Adds a new product to a store, automatically generating its URL slug
+ * Adds a new product to the unified catalog, automatically generating its URL slug
  * and triggering an API route to sync lightweight data to Algolia.
  */
-export async function createProduct(productData: any): Promise<string> {
+export async function createProduct(productData: Omit<Product, 'id' | 'slug' | 'createdAt'>): Promise<string> {
   try {
     const productCollectionRef = collection(db, 'products');
     const newProductDocRef = doc(productCollectionRef); 
@@ -49,9 +49,8 @@ export async function createProduct(productData: any): Promise<string> {
           title: completeProduct.title,
           price: completeProduct.price,
           image: completeProduct.images[0] || null,
-          storeId: completeProduct.storeId,
           slug: completeProduct.slug,
-          globalCategory: completeProduct.globalCategory,
+          category: completeProduct.category,
         }),
       });
 
@@ -75,13 +74,12 @@ export async function createProduct(productData: any): Promise<string> {
 }
 
 /**
- * Fetches a single item using the store and product slugs
+ * Fetches a single item using its unique product slug
  */
-export async function getProductBySlug(storeSlug: string, productSlug: string): Promise<Product | null> {
+export async function getProductBySlug(productSlug: string): Promise<Product | null> {
   try {
     const q = query(
       collection(db, 'products'), 
-      where('storeId', '==', storeSlug), 
       where('slug', '==', productSlug), 
       limit(1)
     );
@@ -94,23 +92,7 @@ export async function getProductBySlug(storeSlug: string, productSlug: string): 
 }
 
 /**
- * Fetches the entire public catalog for a specific store slug
- */
-export async function getProductsByStore(storeSlug: string): Promise<Product[]> {
-  try {
-    const q = query(
-      collection(db, 'products'), 
-      where('storeId', '==', storeSlug)
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data() as Product);
-  } catch (error) {
-    return [];
-  }
-}
-
-/**
- * Fetches a global feed of all products across all stores
+ * Fetches a global feed of all products across the platform
  */
 export async function getGlobalProductsFeed(lastVisibleDoc: QueryDocumentSnapshot<DocumentData> | null = null, pageSize: number = 12) {
   try {
@@ -140,16 +122,16 @@ export async function getProductsByCategory(
 ) {
   try {
     const productsRef = collection(db, 'products');
-    let q = query(productsRef, where('globalCategory', '==', categoryName), limit(pageSize));
+    let q = query(productsRef, where('category', '==', categoryName), limit(pageSize));
 
     if (lastVisibleDoc) {
-      q = query(productsRef, where('globalCategory', '==', categoryName), startAfter(lastVisibleDoc), limit(pageSize));
+      q = query(productsRef, where('category', '==', categoryName), startAfter(lastVisibleDoc), limit(pageSize));
     }
 
     const snapshot = await getDocs(q);
     const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
     const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
-    
+
     return { products, lastDoc };
   } catch (error) {
     console.error('Error fetching category products:', error);
