@@ -1,5 +1,5 @@
 // src/lib/algolia.ts
-import { algoliasearch } from 'algoliasearch';
+import algoliasearch from 'algoliasearch'
 
 // 🚨 IMPORTANT: This file is now ONLY for the frontend Search Bar.
 // It uses the public Search Key, NEVER the Admin Key.
