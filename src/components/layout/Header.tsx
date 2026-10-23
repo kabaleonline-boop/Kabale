@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import GlobalSearch from '@/components/GlobalSearch';
+import { Wrench, PlusCircle } from 'lucide-react';
 
 export default function Header() {
   const { profile, loading, openAuthModal, logout } = useAuth();
@@ -75,8 +76,11 @@ export default function Header() {
               </button>
 
               {isExploreDropdownOpen && (
-                <div className="absolute right-0 mt-4 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 overflow-hidden">
+                <div className="absolute right-0 mt-4 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 overflow-hidden">
                   <Link href="/products" onClick={() => setIsExploreDropdownOpen(false)} className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600">All Products</Link>
+                  <Link href="/services" onClick={() => setIsExploreDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-600 hover:bg-emerald-50 bg-emerald-50/50">
+                    <Wrench className="w-4 h-4" /> Services & Skills
+                  </Link>
                   <Link href="/stores" onClick={() => setIsExploreDropdownOpen(false)} className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600">Store Directory</Link>
                   <Link href="/s/kabale-official" onClick={() => setIsExploreDropdownOpen(false)} className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600">Official Store</Link>
                   <hr className="my-1 border-slate-100" />
@@ -86,12 +90,10 @@ export default function Header() {
               )}
             </div>
 
-            {/* Only show Create Store on Desktop if they are a buyer or guest */}
-            {(!profile || profile.role !== 'seller') && (
-              <Link href="/sell" className="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition">
-                Create Store
-              </Link>
-            )}
+            {/* Quick Post / Sell Button on Desktop */}
+            <Link href="/vendor/products/new" className="flex items-center gap-1.5 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full transition">
+              <PlusCircle className="w-4 h-4" /> Post Item
+            </Link>
 
             {loading ? (
               <div className="w-8 h-8 rounded-full bg-slate-100 animate-pulse"></div>
@@ -114,27 +116,18 @@ export default function Header() {
                 {/* Desktop User Dropdown */}
                 {isUserDropdownOpen && (
                   <div className="absolute right-0 mt-4 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 overflow-hidden">
-                    {/* Logged in as indicator */}
                     <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
                       <p className="text-xs text-slate-500">Logged in as</p>
                       <p className="text-sm font-bold text-slate-900 truncate">{profile.displayName}</p>
                     </div>
 
-                    {/* Both Buyers and Sellers see My Orders */}
                     <Link href="/buyer/orders" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 mt-1">My Orders</Link>
+                    <Link href="/vendor/products" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Manage My Listings</Link>
 
-                    {/* ONLY Sellers see the Store Management Links */}
-                    {profile.role === 'seller' && (
-                      <>
-                        <hr className="my-2 border-slate-100" />
-                        <Link href="/seller/dashboard" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-bold text-slate-900 hover:bg-slate-50">Seller Dashboard</Link>
-                        {storeSlug && (
-                          <Link href={`/s/${storeSlug}`} onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-emerald-600 hover:bg-emerald-50">View My Storefront</Link>
-                        )}
-                      </>
+                    {profile.role === 'seller' && storeSlug && (
+                      <Link href={`/s/${storeSlug}`} onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-emerald-600 hover:bg-emerald-50">View My Storefront</Link>
                     )}
 
-                    {/* ONLY Admins see the Command Center */}
                     {profile.role === 'admin' && (
                       <Link href="/admin" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm text-purple-600 font-semibold hover:bg-purple-50">Admin Command Center</Link>
                     )}
@@ -155,10 +148,13 @@ export default function Header() {
           </div>
 
           {/* Mobile Hamburger Button */}
-          <div className="flex items-center md:hidden gap-4">
+          <div className="flex items-center md:hidden gap-3">
+            <Link href="/vendor/products/new" className="p-2 bg-emerald-50 text-emerald-600 rounded-full">
+              <PlusCircle className="w-5 h-5" />
+            </Link>
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
-              className="text-slate-600 hover:text-slate-900 focus:outline-none p-2"
+              className="text-slate-600 hover:text-slate-900 focus:outline-none p-1"
             >
               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" />
@@ -176,16 +172,13 @@ export default function Header() {
       {/* Slide-in Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-[100] flex justify-end">
-          {/* Glass Backdrop */}
           <div 
             className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity"
             onClick={() => setIsMobileMenuOpen(false)}
           ></div>
 
-          {/* Drawer */}
           <div className="relative w-[85%] max-w-sm h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
 
-            {/* Drawer Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
               <span className="text-xl font-black tracking-tight text-slate-900">
                 KABALE <span className="text-emerald-600">ONLINE</span>
@@ -200,10 +193,21 @@ export default function Header() {
               </button>
             </div>
 
-            {/* Uniform Drawer Links */}
+            {/* Drawer Links */}
             <div className="flex flex-col flex-grow overflow-y-auto pb-4">
               
+              <div className="p-4 bg-slate-50 border-b border-slate-100">
+                <Link 
+                  href="/vendor/products/new"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-sm"
+                >
+                  <PlusCircle className="w-5 h-5" /> Post Product or Service
+                </Link>
+              </div>
+
               <MobileLink href="/products">All Products</MobileLink>
+              <MobileLink href="/services">🛠️ Services & Skills</MobileLink>
               <MobileLink href="/s/kabale-official">Official Store</MobileLink>
               <MobileLink href="/stores">Stores Directory</MobileLink>
               <MobileLink href="/about">About Us</MobileLink>
@@ -214,22 +218,12 @@ export default function Header() {
                    <div className="w-6 h-6 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                  </div>
               ) : !profile ? (
-                <MobileLink href="/sell">Create a Store</MobileLink>
+                <></>
               ) : (
                 <>
                   <MobileLink href="/buyer/orders">My Orders</MobileLink>
-                  
-                  {/* Buyers see "Create a Store", Sellers see Seller Dashboard tools */}
-                  {profile.role === 'seller' ? (
-                    <>
-                      <MobileLink href="/seller/dashboard">Seller Dashboard</MobileLink>
-                      {storeSlug && <MobileLink href={`/s/${storeSlug}`}>View My Storefront</MobileLink>}
-                    </>
-                  ) : (
-                    <MobileLink href="/sell">Create a Store</MobileLink>
-                  )}
+                  <MobileLink href="/vendor/products">Manage My Listings</MobileLink>
 
-                  {/* ONLY Admins see the Command Center */}
                   {profile.role === 'admin' && (
                     <MobileLink href="/admin">Admin Command Center</MobileLink>
                   )}
@@ -237,7 +231,7 @@ export default function Header() {
               )}
             </div>
 
-            {/* Footer Area: Login or Sign Out */}
+            {/* Footer Area */}
             <div className="mt-auto p-6 bg-slate-50 border-t border-slate-100">
               {!loading && !profile ? (
                 <button 
