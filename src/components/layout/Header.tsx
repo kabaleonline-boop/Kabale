@@ -23,9 +23,6 @@ export default function Header() {
   // Helper to check if a link is active
   const isActive = (path: string) => pathname === path;
 
-  // Safe store slug check
-  const storeSlug = (profile as any)?.storeSlug;
-
   // Reusable, uniform link component for the mobile drawer
   const MobileLink = ({ href, children }: { href: string, children: React.ReactNode }) => {
     const active = isActive(href);
@@ -81,8 +78,6 @@ export default function Header() {
                   <Link href="/services" onClick={() => setIsExploreDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-600 hover:bg-emerald-50 bg-emerald-50/50">
                     <Wrench className="w-4 h-4" /> Services & Skills
                   </Link>
-                  <Link href="/stores" onClick={() => setIsExploreDropdownOpen(false)} className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600">Store Directory</Link>
-                  <Link href="/s/kabale-official" onClick={() => setIsExploreDropdownOpen(false)} className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-600">Official Store</Link>
                   <hr className="my-1 border-slate-100" />
                   <Link href="/about" onClick={() => setIsExploreDropdownOpen(false)} className="block px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">About Us</Link>
                   <Link href="/policy" onClick={() => setIsExploreDropdownOpen(false)} className="block px-4 py-2 text-sm text-slate-500 hover:bg-slate-50">Policies</Link>
@@ -90,7 +85,7 @@ export default function Header() {
               )}
             </div>
 
-            {/* Quick Post / Sell Button on Desktop */}
+            {/* Direct Post Item Button */}
             <Link href="/vendor/products/new" className="flex items-center gap-1.5 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full transition">
               <PlusCircle className="w-4 h-4" /> Post Item
             </Link>
@@ -123,10 +118,6 @@ export default function Header() {
 
                     <Link href="/buyer/orders" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 mt-1">My Orders</Link>
                     <Link href="/vendor/products" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Manage My Listings</Link>
-
-                    {profile.role === 'seller' && storeSlug && (
-                      <Link href={`/s/${storeSlug}`} onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm font-semibold text-emerald-600 hover:bg-emerald-50">View My Storefront</Link>
-                    )}
 
                     {profile.role === 'admin' && (
                       <Link href="/admin" onClick={() => setIsUserDropdownOpen(false)} className="block px-4 py-2 text-sm text-purple-600 font-semibold hover:bg-purple-50">Admin Command Center</Link>
@@ -208,8 +199,6 @@ export default function Header() {
 
               <MobileLink href="/products">All Products</MobileLink>
               <MobileLink href="/services">🛠️ Services & Skills</MobileLink>
-              <MobileLink href="/s/kabale-official">Official Store</MobileLink>
-              <MobileLink href="/stores">Stores Directory</MobileLink>
               <MobileLink href="/about">About Us</MobileLink>
               <MobileLink href="/policy">Policies</MobileLink>
 
