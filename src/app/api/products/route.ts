@@ -1,6 +1,6 @@
 // src/app/api/products/route.ts
 import { NextResponse } from 'next/server';
-import { algoliasearch } from 'algoliasearch';
+import algoliasearch from 'algoliasearch'
 
 // 🚨 BULLETPROOF KEY CATCHER: 
 // This will check all 3 possible names you might have used in Vercel
